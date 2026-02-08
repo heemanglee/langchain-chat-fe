@@ -1,16 +1,22 @@
 import { Icon } from '@iconify/react'
 import { MarkdownRenderer } from './MarkdownRenderer'
 import { SourcesList } from './SourcesList'
-import { ToolCallBadge } from './ToolCallBadge'
+import { ToolUsageSummary } from './ToolUsageSummary'
 import type { Message } from '@/types/chat'
 
 interface AssistantMessageProps {
   message: Message
+  usedTools?: string[]
   isLastAssistant?: boolean
   onRegenerate?: (serverId: number) => void
 }
 
-function AssistantMessage({ message, isLastAssistant = false, onRegenerate }: AssistantMessageProps) {
+function AssistantMessage({
+  message,
+  usedTools = [],
+  isLastAssistant = false,
+  onRegenerate,
+}: AssistantMessageProps) {
   const canRegenerate =
     isLastAssistant &&
     message.serverId !== null &&
@@ -24,14 +30,6 @@ function AssistantMessage({ message, isLastAssistant = false, onRegenerate }: As
       </div>
 
       <div className="max-w-[80%]">
-        {message.toolCalls && message.toolCalls.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-1">
-            {message.toolCalls.map((tc) => (
-              <ToolCallBadge key={tc.id} toolCall={tc} />
-            ))}
-          </div>
-        )}
-
         <div className="text-sm">
           <MarkdownRenderer content={message.content} />
           {message.isStreaming && (
@@ -41,6 +39,10 @@ function AssistantMessage({ message, isLastAssistant = false, onRegenerate }: As
             <SourcesList sources={message.sources} />
           )}
         </div>
+
+        {usedTools.length > 0 && !message.isStreaming && (
+          <ToolUsageSummary tools={usedTools} />
+        )}
 
         {canRegenerate && (
           <div className="mt-1 opacity-0 transition-opacity group-hover:opacity-100">

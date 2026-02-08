@@ -38,15 +38,42 @@ describe('AssistantMessage', () => {
     expect(screen.getByText('doc.pdf')).toBeInTheDocument()
   })
 
-  it('renders tool call badges', () => {
+  it('renders used tools summary', () => {
     render(
       <AssistantMessage
-        message={createAssistantMessage({
-          toolCalls: [{ name: 'web_search', args: {}, id: 'tc-1' }],
-        })}
+        message={createAssistantMessage()}
+        usedTools={['web_search']}
       />,
     )
     expect(screen.getByText('web_search')).toBeInTheDocument()
+  })
+
+  it('renders multiple used tools', () => {
+    render(
+      <AssistantMessage
+        message={createAssistantMessage()}
+        usedTools={['web_search', 'document_retrieval']}
+      />,
+    )
+    expect(screen.getByText('web_search')).toBeInTheDocument()
+    expect(screen.getByText('document_retrieval')).toBeInTheDocument()
+  })
+
+  it('hides tool summary when streaming', () => {
+    render(
+      <AssistantMessage
+        message={createAssistantMessage({ isStreaming: true })}
+        usedTools={['web_search']}
+      />,
+    )
+    expect(screen.queryByText('web_search')).not.toBeInTheDocument()
+  })
+
+  it('hides tool summary when no tools used', () => {
+    const { container } = render(
+      <AssistantMessage message={createAssistantMessage()} usedTools={[]} />,
+    )
+    expect(container.querySelectorAll('.rounded-full.bg-zinc-100')).toHaveLength(0)
   })
 
   it('shows regenerate button for last assistant with serverId', () => {

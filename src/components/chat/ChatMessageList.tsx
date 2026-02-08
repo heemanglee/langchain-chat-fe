@@ -14,6 +14,45 @@ interface ChatMessageListProps {
   onRegenerate?: (serverId: number) => void
 }
 
+function isVisibleMessage(msg: Message): boolean {
+  if (msg.role === 'tool') return false
+  if (msg.role === 'assistant' && !msg.content.trim() && !msg.isStreaming) {
+    return false
+  }
+  return true
+}
+
+function collectUsedTools(messages: Message[]): Map<string, string[]> {
+  const result = new Map<string, string[]>()
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i]
+    if (msg.role !== 'assistant') continue
+    if (!msg.content.trim() && !msg.isStreaming) continue
+
+    const tools = new Set<string>()
+
+    if (msg.toolCalls) {
+      for (const tc of msg.toolCalls) tools.add(tc.name)
+    }
+
+    for (let j = i - 1; j >= 0; j--) {
+      const prev = messages[j]
+      if (prev.role === 'user') break
+      if (prev.role === 'tool' && prev.toolName) tools.add(prev.toolName)
+      if (prev.role === 'assistant' && prev.toolCalls) {
+        for (const tc of prev.toolCalls) tools.add(tc.name)
+      }
+    }
+
+    if (tools.size > 0) {
+      result.set(msg.id, Array.from(tools))
+    }
+  }
+
+  return result
+}
+
 function ChatMessageList({
   messages,
   toolCall,
@@ -23,12 +62,19 @@ function ChatMessageList({
 }: ChatMessageListProps) {
   const { containerRef, handleScroll } = useAutoScroll([messages, toolCall])
 
+  const displayMessages = useMemo(
+    () => messages.filter(isVisibleMessage),
+    [messages],
+  )
+
+  const usedToolsMap = useMemo(() => collectUsedTools(messages), [messages])
+
   const lastAssistantId = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === 'assistant') return messages[i].id
+    for (let i = displayMessages.length - 1; i >= 0; i--) {
+      if (displayMessages[i].role === 'assistant') return displayMessages[i].id
     }
     return null
-  }, [messages])
+  }, [displayMessages])
 
   if (isLoading) {
     return (
@@ -45,10 +91,11 @@ function ChatMessageList({
       className="flex-1 overflow-y-auto px-4 py-6"
     >
       <div className="mx-auto max-w-3xl space-y-6">
-        {messages.map((message) => (
+        {displayMessages.map((message) => (
           <ChatMessage
             key={message.id}
             message={message}
+            usedTools={usedToolsMap.get(message.id)}
             onEdit={onEdit}
             onRegenerate={onRegenerate}
             isLastAssistant={message.id === lastAssistantId}

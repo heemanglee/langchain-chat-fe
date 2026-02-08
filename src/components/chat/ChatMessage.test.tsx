@@ -85,30 +85,26 @@ describe('ChatMessage', () => {
     expect(avatar).toBeInTheDocument()
   })
 
-  it('renders tool message', () => {
-    render(
+  it('returns null for tool messages', () => {
+    const { container } = render(
       <ChatMessage
-        message={createMessage({
-          role: 'tool',
-          content: '결과',
-          toolName: 'web_search',
-        })}
+        message={createMessage({ role: 'tool', content: '결과' })}
       />,
     )
-    expect(screen.getByText('web_search 완료')).toBeInTheDocument()
+    expect(container.firstChild).toBeNull()
   })
 
-  it('renders tool call badges on assistant message', () => {
+  it('passes usedTools to assistant message', () => {
     render(
       <ChatMessage
         message={createMessage({
           role: 'assistant',
           content: '결과입니다',
-          toolCalls: [{ name: 'search', args: {}, id: 'tc-1' }],
         })}
+        usedTools={['web_search']}
       />,
     )
-    expect(screen.getByText('search')).toBeInTheDocument()
+    expect(screen.getByText('web_search')).toBeInTheDocument()
   })
 
   it('passes onEdit to user message', () => {

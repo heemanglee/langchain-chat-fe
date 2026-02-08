@@ -21,7 +21,7 @@ const messages: Message[] = [
 ]
 
 describe('ChatMessageList', () => {
-  it('renders all messages', () => {
+  it('renders user and assistant messages', () => {
     render(<ChatMessageList messages={messages} toolCall={null} />)
     expect(screen.getByText('안녕하세요')).toBeInTheDocument()
     expect(screen.getByText('반갑습니다!')).toBeInTheDocument()
@@ -34,7 +34,7 @@ describe('ChatMessageList', () => {
     expect(container.querySelector('.space-y-6')).toBeInTheDocument()
   })
 
-  it('renders tool call indicator', () => {
+  it('renders tool call indicator during streaming', () => {
     render(
       <ChatMessageList
         messages={messages}
@@ -51,9 +51,41 @@ describe('ChatMessageList', () => {
     expect(container.querySelector('.animate-spin')).toBeInTheDocument()
   })
 
-  it('renders tool messages in list', () => {
+  it('hides tool messages from display', () => {
     const messagesWithTool: Message[] = [
       ...messages,
+      {
+        id: '3',
+        serverId: 3,
+        role: 'tool',
+        content: '검색 결과',
+        toolName: 'web_search',
+        createdAt: '2024-01-01T00:00:02Z',
+      },
+    ]
+    render(
+      <ChatMessageList messages={messagesWithTool} toolCall={null} />,
+    )
+    expect(screen.queryByText('검색 결과')).not.toBeInTheDocument()
+  })
+
+  it('hides empty intermediate assistant messages', () => {
+    const messagesWithIntermediate: Message[] = [
+      {
+        id: '1',
+        serverId: 1,
+        role: 'user',
+        content: '검색해줘',
+        createdAt: '2024-01-01T00:00:00Z',
+      },
+      {
+        id: '2',
+        serverId: 2,
+        role: 'assistant',
+        content: '',
+        toolCalls: [{ name: 'web_search', args: {}, id: 'tc-1' }],
+        createdAt: '2024-01-01T00:00:01Z',
+      },
       {
         id: '3',
         serverId: 3,
@@ -62,10 +94,75 @@ describe('ChatMessageList', () => {
         toolName: 'web_search',
         createdAt: '2024-01-01T00:00:02Z',
       },
+      {
+        id: '4',
+        serverId: 4,
+        role: 'assistant',
+        content: '날씨 정보입니다.',
+        createdAt: '2024-01-01T00:00:03Z',
+      },
     ]
     render(
-      <ChatMessageList messages={messagesWithTool} toolCall={null} />,
+      <ChatMessageList messages={messagesWithIntermediate} toolCall={null} />,
     )
-    expect(screen.getByText('web_search 완료')).toBeInTheDocument()
+    expect(screen.getByText('검색해줘')).toBeInTheDocument()
+    expect(screen.getByText('날씨 정보입니다.')).toBeInTheDocument()
+    expect(screen.getByText('web_search')).toBeInTheDocument()
+  })
+
+  it('deduplicates tools for assistant message', () => {
+    const messagesWithDuplicateTools: Message[] = [
+      {
+        id: '1',
+        serverId: 1,
+        role: 'user',
+        content: '질문',
+        createdAt: '2024-01-01T00:00:00Z',
+      },
+      {
+        id: '2',
+        serverId: 2,
+        role: 'assistant',
+        content: '',
+        toolCalls: [{ name: 'web_search', args: {}, id: 'tc-1' }],
+        createdAt: '2024-01-01T00:00:01Z',
+      },
+      {
+        id: '3',
+        serverId: 3,
+        role: 'tool',
+        content: '결과1',
+        toolName: 'web_search',
+        createdAt: '2024-01-01T00:00:02Z',
+      },
+      {
+        id: '4',
+        serverId: 4,
+        role: 'assistant',
+        content: '',
+        toolCalls: [{ name: 'web_search', args: {}, id: 'tc-2' }],
+        createdAt: '2024-01-01T00:00:03Z',
+      },
+      {
+        id: '5',
+        serverId: 5,
+        role: 'tool',
+        content: '결과2',
+        toolName: 'web_search',
+        createdAt: '2024-01-01T00:00:04Z',
+      },
+      {
+        id: '6',
+        serverId: 6,
+        role: 'assistant',
+        content: '최종 응답',
+        createdAt: '2024-01-01T00:00:05Z',
+      },
+    ]
+    render(
+      <ChatMessageList messages={messagesWithDuplicateTools} toolCall={null} />,
+    )
+    const webSearchElements = screen.getAllByText('web_search')
+    expect(webSearchElements).toHaveLength(1)
   })
 })

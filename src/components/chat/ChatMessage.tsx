@@ -1,16 +1,16 @@
 import { UserMessage } from './UserMessage'
 import { AssistantMessage } from './AssistantMessage'
-import { ToolMessage } from './ToolMessage'
 import type { Message } from '@/types/chat'
 
 interface ChatMessageProps {
   message: Message
+  usedTools?: string[]
   onEdit?: (serverId: number, newContent: string) => void
   onRegenerate?: (serverId: number) => void
   isLastAssistant?: boolean
 }
 
-function ChatMessage({ message, onEdit, onRegenerate, isLastAssistant }: ChatMessageProps) {
+function ChatMessage({ message, usedTools, onEdit, onRegenerate, isLastAssistant }: ChatMessageProps) {
   switch (message.role) {
     case 'user':
       return <UserMessage message={message} onEdit={onEdit} />
@@ -18,12 +18,11 @@ function ChatMessage({ message, onEdit, onRegenerate, isLastAssistant }: ChatMes
       return (
         <AssistantMessage
           message={message}
+          usedTools={usedTools}
           onRegenerate={onRegenerate}
           isLastAssistant={isLastAssistant}
         />
       )
-    case 'tool':
-      return <ToolMessage message={message} />
     default:
       return null
   }
