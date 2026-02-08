@@ -81,8 +81,14 @@ src/
 - **Base URL:** `VITE_API_BASE_URL` 환경변수 (기본: `http://localhost:8004`)
 - **인증:** Bearer Token (JWT) — `Authorization: Bearer {access_token}`
 - **응답 형식:** `{ status: number, message: string, data: T | null }`
+- **API 명세:** `../langchain-chat/openapi.json` (Single Source of Truth)
 - **SSE 스트리밍:** `POST /api/v1/chat/stream` — `token`, `tool_call`, `tool_result`, `done`, `error` 이벤트
-- **API 명세:** 백엔드 `openapi.json` 참조 (지속 업데이트)
+
+### API 연동 규칙
+
+- API 관련 기능 구현 시 반드시 `../langchain-chat/openapi.json`을 먼저 읽고 엔드포인트와 스키마를 확인한다
+- 프론트엔드의 TypeScript 타입(`src/types/`)은 `openapi.json`의 스키마와 일치해야 한다
+- 백엔드 스키마가 변경되면 프론트엔드 타입도 함께 업데이트한다
 
 ## Design System
 
