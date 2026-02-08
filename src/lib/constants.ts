@@ -13,3 +13,7 @@ export const SUPPORTED_FILE_TYPES = [
 ] as const
 
 export const FILE_EXTENSIONS = ['.pdf', '.docx', '.txt', '.md'] as const
+
+export const MAX_TEXTAREA_ROWS = 6
+
+export const CONVERSATION_PAGE_SIZE = 20
