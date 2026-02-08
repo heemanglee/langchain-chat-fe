@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 import { ChatMessage } from './ChatMessage'
 import { ToolCallIndicator } from './ToolCallIndicator'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
@@ -91,19 +91,30 @@ function ChatMessageList({
       className="flex-1 overflow-y-auto px-4 py-6"
     >
       <div className="mx-auto max-w-3xl space-y-6">
-        {displayMessages.map((message) => (
-          <ChatMessage
-            key={message.id}
-            message={message}
-            usedTools={usedToolsMap.get(message.id)}
-            onEdit={onEdit}
-            onRegenerate={onRegenerate}
-            isLastAssistant={message.id === lastAssistantId}
-          />
-        ))}
-        {toolCall && (
-          <ToolCallIndicator name={toolCall.name} status={toolCall.status} />
-        )}
+        {displayMessages.map((message) => {
+          const showToolIndicatorAbove =
+            toolCall &&
+            message.role === 'assistant' &&
+            message.isStreaming
+
+          return (
+            <Fragment key={message.id}>
+              {showToolIndicatorAbove && (
+                <ToolCallIndicator
+                  name={toolCall.name}
+                  status={toolCall.status}
+                />
+              )}
+              <ChatMessage
+                message={message}
+                usedTools={usedToolsMap.get(message.id)}
+                onEdit={onEdit}
+                onRegenerate={onRegenerate}
+                isLastAssistant={message.id === lastAssistantId}
+              />
+            </Fragment>
+          )
+        })}
       </div>
     </div>
   )

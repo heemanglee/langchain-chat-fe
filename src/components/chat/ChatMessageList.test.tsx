@@ -34,14 +34,41 @@ describe('ChatMessageList', () => {
     expect(container.querySelector('.space-y-6')).toBeInTheDocument()
   })
 
-  it('renders tool call indicator during streaming', () => {
+  it('renders tool call indicator when streaming assistant exists', () => {
+    const streamingMessages: Message[] = [
+      {
+        id: '1',
+        serverId: 1,
+        role: 'user',
+        content: '검색해줘',
+        createdAt: '2024-01-01T00:00:00Z',
+      },
+      {
+        id: '2',
+        serverId: null,
+        role: 'assistant',
+        content: '',
+        isStreaming: true,
+        createdAt: '2024-01-01T00:00:01Z',
+      },
+    ]
+    render(
+      <ChatMessageList
+        messages={streamingMessages}
+        toolCall={{ name: 'web_search', status: 'calling' }}
+      />,
+    )
+    expect(screen.getByText('web_search 실행 중...')).toBeInTheDocument()
+  })
+
+  it('does not render tool indicator when no streaming message', () => {
     render(
       <ChatMessageList
         messages={messages}
         toolCall={{ name: 'web_search', status: 'calling' }}
       />,
     )
-    expect(screen.getByText('web_search 실행 중...')).toBeInTheDocument()
+    expect(screen.queryByText('web_search 실행 중...')).not.toBeInTheDocument()
   })
 
   it('shows loading spinner when isLoading is true', () => {
