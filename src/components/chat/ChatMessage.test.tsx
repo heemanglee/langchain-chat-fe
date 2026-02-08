@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ChatMessage } from './ChatMessage'
 import type { Message } from '@/types/chat'
@@ -6,6 +6,7 @@ import type { Message } from '@/types/chat'
 function createMessage(overrides: Partial<Message> = {}): Message {
   return {
     id: '1',
+    serverId: null,
     role: 'user',
     content: '테스트 메시지',
     createdAt: '2024-01-01T00:00:00Z',
@@ -82,5 +83,54 @@ describe('ChatMessage', () => {
     )
     const avatar = container.querySelector('.rounded-full.bg-zinc-900')
     expect(avatar).toBeInTheDocument()
+  })
+
+  it('returns null for tool messages', () => {
+    const { container } = render(
+      <ChatMessage
+        message={createMessage({ role: 'tool', content: '결과' })}
+      />,
+    )
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('passes usedTools to assistant message', () => {
+    render(
+      <ChatMessage
+        message={createMessage({
+          role: 'assistant',
+          content: '결과입니다',
+        })}
+        usedTools={['web_search']}
+      />,
+    )
+    expect(screen.getByText('web_search')).toBeInTheDocument()
+  })
+
+  it('passes onEdit to user message', () => {
+    const onEdit = vi.fn()
+    render(
+      <ChatMessage
+        message={createMessage({ serverId: 10 })}
+        onEdit={onEdit}
+      />,
+    )
+    expect(screen.getByLabelText('메시지 수정')).toBeInTheDocument()
+  })
+
+  it('passes onRegenerate to last assistant message', () => {
+    const onRegenerate = vi.fn()
+    render(
+      <ChatMessage
+        message={createMessage({
+          role: 'assistant',
+          content: '응답',
+          serverId: 11,
+        })}
+        onRegenerate={onRegenerate}
+        isLastAssistant={true}
+      />,
+    )
+    expect(screen.getByLabelText('응답 재생성')).toBeInTheDocument()
   })
 })

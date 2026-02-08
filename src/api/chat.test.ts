@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { sendMessage, fetchConversations, streamChat } from './chat'
+import {
+  sendMessage,
+  fetchConversations,
+  fetchConversationMessages,
+  streamChat,
+  streamEditMessage,
+  streamRegenerate,
+} from './chat'
 
 vi.mock('./client', () => ({
   apiClient: {
@@ -8,10 +15,16 @@ vi.mock('./client', () => ({
   },
 }))
 
+vi.mock('./sse', () => ({
+  streamSSE: vi.fn(),
+}))
+
 import { apiClient } from './client'
+import { streamSSE } from './sse'
 
 const mockPost = vi.mocked(apiClient.post)
 const mockGet = vi.mocked(apiClient.get)
+const mockStreamSSE = vi.mocked(streamSSE)
 
 describe('chat API', () => {
   beforeEach(() => {
@@ -89,87 +102,100 @@ describe('chat API', () => {
     })
   })
 
+  describe('fetchConversationMessages', () => {
+    it('sends GET request for conversation messages', async () => {
+      const mockResponse = {
+        status: 200,
+        message: 'OK',
+        data: {
+          conversation_id: 'c1',
+          messages: [
+            {
+              id: 1,
+              session_id: 1,
+              role: 'human',
+              content: 'Hello',
+              tool_calls_json: null,
+              tool_call_id: null,
+              tool_name: null,
+              created_at: '2024-01-01T00:00:00Z',
+            },
+          ],
+        },
+      }
+
+      mockGet.mockReturnValue({
+        json: vi.fn().mockResolvedValue(mockResponse),
+      } as never)
+
+      const result = await fetchConversationMessages('c1')
+
+      expect(mockGet).toHaveBeenCalledWith('api/v1/conversations/c1/messages')
+      expect(result.data?.messages).toHaveLength(1)
+    })
+  })
+
   describe('streamChat', () => {
-    it('calls handlers for SSE events', async () => {
+    it('delegates to streamSSE with correct URL', async () => {
       const handlers = {
         onToken: vi.fn(),
-        onToolCall: vi.fn(),
-        onToolResult: vi.fn(),
         onDone: vi.fn(),
         onError: vi.fn(),
       }
+      const signal = new AbortController().signal
 
-      const encoder = new TextEncoder()
-      const sseData = [
-        'data: {"event":"token","data":"Hello"}\n\n',
-        'data: {"event":"tool_call","data":{"name":"search"}}\n\n',
-        'data: {"event":"tool_result","data":{"result":"found"}}\n\n',
-        'data: {"event":"done","data":{"conversation_id":"c1","sources":["s1"]}}\n\n',
-      ].join('')
+      await streamChat({ message: 'test' }, handlers, signal)
 
-      const stream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(encoder.encode(sseData))
-          controller.close()
-        },
-      })
-
-      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response(stream, { status: 200 }),
+      expect(mockStreamSSE).toHaveBeenCalledWith(
+        '/api/v1/chat/stream',
+        { message: 'test' },
+        handlers,
+        signal,
       )
-
-      await streamChat({ message: 'test' }, handlers)
-
-      expect(handlers.onToken).toHaveBeenCalledWith('Hello')
-      expect(handlers.onToolCall).toHaveBeenCalledWith({ name: 'search' })
-      expect(handlers.onToolResult).toHaveBeenCalledWith({ result: 'found' })
-      expect(handlers.onDone).toHaveBeenCalledWith({
-        conversation_id: 'c1',
-        sources: ['s1'],
-      })
     })
+  })
 
-    it('throws on non-ok response', async () => {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response(null, { status: 500 }),
-      )
-
+  describe('streamEditMessage', () => {
+    it('delegates to streamSSE with correct URL', async () => {
       const handlers = {
         onToken: vi.fn(),
         onDone: vi.fn(),
         onError: vi.fn(),
       }
 
-      await expect(
-        streamChat({ message: 'test' }, handlers),
-      ).rejects.toThrow('Stream request failed: 500')
+      await streamEditMessage(
+        { message_id: 1, conversation_id: 'c1', message: 'edited' },
+        handlers,
+      )
+
+      expect(mockStreamSSE).toHaveBeenCalledWith(
+        '/api/v1/chat/edit',
+        { message_id: 1, conversation_id: 'c1', message: 'edited' },
+        handlers,
+        undefined,
+      )
     })
+  })
 
-    it('skips malformed SSE lines', async () => {
-      const encoder = new TextEncoder()
-      const sseData =
-        'data: not json\ndata: {"event":"token","data":"ok"}\n\n'
-
-      const stream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(encoder.encode(sseData))
-          controller.close()
-        },
-      })
-
-      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response(stream, { status: 200 }),
-      )
-
+  describe('streamRegenerate', () => {
+    it('delegates to streamSSE with correct URL', async () => {
       const handlers = {
         onToken: vi.fn(),
         onDone: vi.fn(),
         onError: vi.fn(),
       }
 
-      await streamChat({ message: 'test' }, handlers)
+      await streamRegenerate(
+        { message_id: 2, conversation_id: 'c1' },
+        handlers,
+      )
 
-      expect(handlers.onToken).toHaveBeenCalledWith('ok')
+      expect(mockStreamSSE).toHaveBeenCalledWith(
+        '/api/v1/chat/regenerate',
+        { message_id: 2, conversation_id: 'c1' },
+        handlers,
+        undefined,
+      )
     })
   })
 })

@@ -24,13 +24,50 @@ export interface StreamEvent {
   data: string
 }
 
+export interface ServerMessage {
+  id: number
+  session_id: number
+  role: 'human' | 'ai' | 'tool'
+  content: string
+  tool_calls_json: string | null
+  tool_call_id: string | null
+  tool_name: string | null
+  created_at: string
+}
+
+export interface ToolCallInfo {
+  name: string
+  args: Record<string, unknown>
+  id: string
+}
+
 export interface Message {
   id: string
-  role: 'user' | 'assistant' | 'system'
+  serverId: number | null
+  role: 'user' | 'assistant' | 'tool'
   content: string
   sources?: string[]
   isStreaming?: boolean
   createdAt: string
+  toolCalls?: ToolCallInfo[]
+  toolCallId?: string
+  toolName?: string
+}
+
+export interface EditMessageRequest {
+  message_id: number
+  conversation_id: string
+  message: string
+}
+
+export interface RegenerateRequest {
+  message_id: number
+  conversation_id: string
+}
+
+export interface ConversationMessagesResponse {
+  conversation_id: string
+  messages: ServerMessage[]
 }
 
 export interface ConversationSummary {

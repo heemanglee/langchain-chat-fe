@@ -3,20 +3,42 @@ import { ChatWelcome } from '@/components/chat/ChatWelcome'
 import { ChatMessageList } from '@/components/chat/ChatMessageList'
 import { ChatInput } from '@/components/chat/ChatInput'
 import { useChat } from '@/hooks/useChat'
+import { useConversationMessages } from '@/hooks/useConversationMessages'
 
 function Chat() {
   const { conversationId } = useParams<{ conversationId: string }>()
-  const { messages, isStreaming, toolCall, sendMessage, stopStreaming } =
-    useChat(conversationId)
+  const { data: historyMessages, isLoading: isHistoryLoading } =
+    useConversationMessages(conversationId)
 
-  const isEmpty = messages.length === 0
+  const {
+    messages,
+    isStreaming,
+    isLoading,
+    toolCall,
+    sendMessage,
+    editMessage,
+    regenerateMessage,
+    stopStreaming,
+  } = useChat({
+    conversationId,
+    initialMessages: historyMessages,
+    isHistoryLoading,
+  })
+
+  const isEmpty = messages.length === 0 && !isLoading
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       {isEmpty ? (
         <ChatWelcome />
       ) : (
-        <ChatMessageList messages={messages} toolCall={toolCall} />
+        <ChatMessageList
+          messages={messages}
+          toolCall={toolCall}
+          isLoading={isLoading}
+          onEdit={editMessage}
+          onRegenerate={regenerateMessage}
+        />
       )}
       <ChatInput
         onSend={sendMessage}

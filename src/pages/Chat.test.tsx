@@ -14,6 +14,9 @@ vi.mock('react-router', async () => {
 
 vi.mock('@/api/chat', () => ({
   streamChat: vi.fn(),
+  streamEditMessage: vi.fn(),
+  streamRegenerate: vi.fn(),
+  fetchConversationMessages: vi.fn(),
 }))
 
 describe('Chat', () => {

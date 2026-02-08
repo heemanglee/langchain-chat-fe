@@ -11,11 +11,15 @@ vi.mock('react-router', async () => {
 
 vi.mock('@/api/chat', () => ({
   streamChat: vi.fn(),
+  streamEditMessage: vi.fn(),
+  streamRegenerate: vi.fn(),
 }))
 
-import { streamChat } from '@/api/chat'
+import { streamChat, streamEditMessage, streamRegenerate } from '@/api/chat'
 
 const mockStreamChat = vi.mocked(streamChat)
+const mockStreamEditMessage = vi.mocked(streamEditMessage)
+const mockStreamRegenerate = vi.mocked(streamRegenerate)
 
 describe('useChat', () => {
   beforeEach(() => {
@@ -31,6 +35,7 @@ describe('useChat', () => {
     expect(result.current.isStreaming).toBe(false)
     expect(result.current.error).toBeNull()
     expect(result.current.toolCall).toBeNull()
+    expect(result.current.isLoading).toBe(false)
   })
 
   it('adds user and assistant messages when sending', async () => {
@@ -50,6 +55,7 @@ describe('useChat', () => {
     expect(result.current.messages).toHaveLength(2)
     expect(result.current.messages[0].role).toBe('user')
     expect(result.current.messages[0].content).toBe('안녕하세요')
+    expect(result.current.messages[0].serverId).toBeNull()
     expect(result.current.messages[1].role).toBe('assistant')
     expect(result.current.messages[1].content).toBe('안녕')
   })
@@ -78,9 +84,12 @@ describe('useChat', () => {
       handlers.onDone({ conversation_id: 'existing', sources: [] })
     })
 
-    const { result } = renderHook(() => useChat('existing'), {
-      wrapper: AllProviders,
-    })
+    const { result } = renderHook(
+      () => useChat({ conversationId: 'existing' }),
+      {
+        wrapper: AllProviders,
+      },
+    )
 
     await act(async () => {
       await result.current.sendMessage('메시지')
@@ -143,7 +152,7 @@ describe('useChat', () => {
 
   it('resets messages when conversationId changes', () => {
     const { result, rerender } = renderHook(
-      ({ id }) => useChat(id),
+      ({ id }) => useChat({ conversationId: id }),
       {
         wrapper: AllProviders,
         initialProps: { id: 'conv-1' as string | undefined },
@@ -174,5 +183,170 @@ describe('useChat', () => {
       expect.any(Object),
       expect.any(AbortSignal),
     )
+  })
+
+  it('uses initialMessages when provided', () => {
+    const initialMessages = [
+      {
+        id: '1',
+        serverId: 1,
+        role: 'user' as const,
+        content: '히스토리 메시지',
+        createdAt: '2024-01-01T00:00:00Z',
+      },
+      {
+        id: '2',
+        serverId: 2,
+        role: 'assistant' as const,
+        content: '히스토리 응답',
+        createdAt: '2024-01-01T00:00:01Z',
+      },
+    ]
+
+    const { result } = renderHook(
+      () =>
+        useChat({
+          conversationId: 'conv-1',
+          initialMessages,
+        }),
+      { wrapper: AllProviders },
+    )
+
+    expect(result.current.messages).toHaveLength(2)
+    expect(result.current.messages[0].content).toBe('히스토리 메시지')
+    expect(result.current.messages[1].content).toBe('히스토리 응답')
+  })
+
+  it('reports isLoading from isHistoryLoading', () => {
+    const { result } = renderHook(
+      () =>
+        useChat({
+          conversationId: 'conv-1',
+          isHistoryLoading: true,
+        }),
+      { wrapper: AllProviders },
+    )
+
+    expect(result.current.isLoading).toBe(true)
+  })
+
+  describe('editMessage', () => {
+    it('truncates messages and starts new stream', async () => {
+      const initialMessages = [
+        {
+          id: '1',
+          serverId: 10,
+          role: 'user' as const,
+          content: '원래 질문',
+          createdAt: '2024-01-01T00:00:00Z',
+        },
+        {
+          id: '2',
+          serverId: 11,
+          role: 'assistant' as const,
+          content: '원래 응답',
+          createdAt: '2024-01-01T00:00:01Z',
+        },
+      ]
+
+      mockStreamEditMessage.mockImplementation(async (_req, handlers) => {
+        handlers.onToken('새 응답')
+        handlers.onDone({ conversation_id: 'c1', sources: [] })
+      })
+
+      const { result } = renderHook(
+        () =>
+          useChat({
+            conversationId: 'c1',
+            initialMessages,
+          }),
+        { wrapper: AllProviders },
+      )
+
+      await act(async () => {
+        await result.current.editMessage(10, '수정된 질문')
+      })
+
+      expect(result.current.messages).toHaveLength(2)
+      expect(result.current.messages[0].content).toBe('수정된 질문')
+      expect(result.current.messages[1].content).toBe('새 응답')
+      expect(mockStreamEditMessage).toHaveBeenCalledWith(
+        { message_id: 10, conversation_id: 'c1', message: '수정된 질문' },
+        expect.any(Object),
+        expect.any(AbortSignal),
+      )
+    })
+
+    it('does nothing without conversationId', async () => {
+      const { result } = renderHook(() => useChat(), {
+        wrapper: AllProviders,
+      })
+
+      await act(async () => {
+        await result.current.editMessage(1, '수정')
+      })
+
+      expect(mockStreamEditMessage).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('regenerateMessage', () => {
+    it('truncates from target and starts new stream', async () => {
+      const initialMessages = [
+        {
+          id: '1',
+          serverId: 10,
+          role: 'user' as const,
+          content: '질문',
+          createdAt: '2024-01-01T00:00:00Z',
+        },
+        {
+          id: '2',
+          serverId: 11,
+          role: 'assistant' as const,
+          content: '원래 응답',
+          createdAt: '2024-01-01T00:00:01Z',
+        },
+      ]
+
+      mockStreamRegenerate.mockImplementation(async (_req, handlers) => {
+        handlers.onToken('재생성된 응답')
+        handlers.onDone({ conversation_id: 'c1', sources: [] })
+      })
+
+      const { result } = renderHook(
+        () =>
+          useChat({
+            conversationId: 'c1',
+            initialMessages,
+          }),
+        { wrapper: AllProviders },
+      )
+
+      await act(async () => {
+        await result.current.regenerateMessage(11)
+      })
+
+      expect(result.current.messages).toHaveLength(2)
+      expect(result.current.messages[0].content).toBe('질문')
+      expect(result.current.messages[1].content).toBe('재생성된 응답')
+      expect(mockStreamRegenerate).toHaveBeenCalledWith(
+        { message_id: 11, conversation_id: 'c1' },
+        expect.any(Object),
+        expect.any(AbortSignal),
+      )
+    })
+
+    it('does nothing without conversationId', async () => {
+      const { result } = renderHook(() => useChat(), {
+        wrapper: AllProviders,
+      })
+
+      await act(async () => {
+        await result.current.regenerateMessage(1)
+      })
+
+      expect(mockStreamRegenerate).not.toHaveBeenCalled()
+    })
   })
 })
