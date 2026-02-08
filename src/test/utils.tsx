@@ -38,4 +38,4 @@ function renderWithProviders(
   }
 }
 
-export { renderWithProviders, createTestQueryClient }
+export { AllProviders, renderWithProviders, createTestQueryClient }
