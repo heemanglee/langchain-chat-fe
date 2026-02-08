@@ -6,12 +6,14 @@ import type { Message } from '@/types/chat'
 const messages: Message[] = [
   {
     id: '1',
+    serverId: 1,
     role: 'user',
     content: '안녕하세요',
     createdAt: '2024-01-01T00:00:00Z',
   },
   {
     id: '2',
+    serverId: 2,
     role: 'assistant',
     content: '반갑습니다!',
     createdAt: '2024-01-01T00:00:01Z',
@@ -40,5 +42,30 @@ describe('ChatMessageList', () => {
       />,
     )
     expect(screen.getByText('web_search 실행 중...')).toBeInTheDocument()
+  })
+
+  it('shows loading spinner when isLoading is true', () => {
+    const { container } = render(
+      <ChatMessageList messages={[]} toolCall={null} isLoading={true} />,
+    )
+    expect(container.querySelector('.animate-spin')).toBeInTheDocument()
+  })
+
+  it('renders tool messages in list', () => {
+    const messagesWithTool: Message[] = [
+      ...messages,
+      {
+        id: '3',
+        serverId: 3,
+        role: 'tool',
+        content: '결과',
+        toolName: 'web_search',
+        createdAt: '2024-01-01T00:00:02Z',
+      },
+    ]
+    render(
+      <ChatMessageList messages={messagesWithTool} toolCall={null} />,
+    )
+    expect(screen.getByText('web_search 완료')).toBeInTheDocument()
   })
 })
