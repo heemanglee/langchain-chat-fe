@@ -17,3 +17,14 @@ export const FILE_EXTENSIONS = ['.pdf', '.docx', '.txt', '.md'] as const
 export const MAX_TEXTAREA_ROWS = 6
 
 export const CONVERSATION_PAGE_SIZE = 20
+
+export const MAX_IMAGE_COUNT = 5
+
+export const ACCEPTED_IMAGE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+] as const
+
+export const MAX_IMAGE_SIZE = 10 * 1024 * 1024
