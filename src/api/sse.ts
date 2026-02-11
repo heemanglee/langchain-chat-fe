@@ -6,6 +6,64 @@ export interface StreamHandlers {
   onError: (error: string) => void
 }
 
+function processSSELine(line: string, handlers: StreamHandlers): void {
+  const trimmed = line.trim()
+  if (!trimmed || !trimmed.startsWith('data: ')) return
+
+  const parsed = JSON.parse(trimmed.slice(6)) as {
+    event: string
+    data: unknown
+  }
+
+  switch (parsed.event) {
+    case 'token':
+      handlers.onToken(parsed.data as string)
+      break
+    case 'tool_call':
+      handlers.onToolCall?.(parsed.data)
+      break
+    case 'tool_result':
+      handlers.onToolResult?.(parsed.data)
+      break
+    case 'done':
+      handlers.onDone(
+        parsed.data as { conversation_id: string; sources: string[] },
+      )
+      break
+    case 'error':
+      handlers.onError(parsed.data as string)
+      break
+  }
+}
+
+async function readSSEStream(
+  response: Response,
+  handlers: StreamHandlers,
+): Promise<void> {
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error('No response body')
+
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+
+    for (const line of lines) {
+      try {
+        processSSELine(line, handlers)
+      } catch {
+        // skip malformed SSE lines
+      }
+    }
+  }
+}
+
 export async function streamSSE(
   url: string,
   body: unknown,
@@ -30,52 +88,31 @@ export async function streamSSE(
     throw new Error(`Stream request failed: ${response.status}`)
   }
 
-  const reader = response.body?.getReader()
-  if (!reader) throw new Error('No response body')
+  await readSSEStream(response, handlers)
+}
 
-  const decoder = new TextDecoder()
-  let buffer = ''
+export async function streamSSEWithFormData(
+  url: string,
+  formData: FormData,
+  handlers: StreamHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
+  const token = localStorage.getItem('access_token')
+  const baseUrl =
+    import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8004'
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+  const response = await fetch(`${baseUrl}${url}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+    signal,
+  })
 
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
-
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed || !trimmed.startsWith('data: ')) continue
-
-      try {
-        const parsed = JSON.parse(trimmed.slice(6)) as {
-          event: string
-          data: unknown
-        }
-
-        switch (parsed.event) {
-          case 'token':
-            handlers.onToken(parsed.data as string)
-            break
-          case 'tool_call':
-            handlers.onToolCall?.(parsed.data)
-            break
-          case 'tool_result':
-            handlers.onToolResult?.(parsed.data)
-            break
-          case 'done':
-            handlers.onDone(
-              parsed.data as { conversation_id: string; sources: string[] },
-            )
-            break
-          case 'error':
-            handlers.onError(parsed.data as string)
-            break
-        }
-      } catch {
-        // skip malformed SSE lines
-      }
-    }
+  if (!response.ok) {
+    throw new Error(`Stream request failed: ${response.status}`)
   }
+
+  await readSSEStream(response, handlers)
 }
