@@ -23,7 +23,7 @@ interface UseChatReturn {
   toolCall: ToolCallState | null
   sendMessage: (
     content: string,
-    options?: { useWebSearch?: boolean },
+    options?: { useWebSearch?: boolean; images?: File[] },
   ) => Promise<void>
   editMessage: (messageServerId: number, newContent: string) => Promise<void>
   regenerateMessage: (messageServerId: number) => Promise<void>
@@ -155,7 +155,7 @@ function useChat(options: UseChatOptions = {}): UseChatReturn {
   )
 
   const sendMessage = useCallback(
-    async (content: string, options?: { useWebSearch?: boolean }) => {
+    async (content: string, options?: { useWebSearch?: boolean; images?: File[] }) => {
       setError(null)
       setToolCall(null)
 
@@ -188,6 +188,7 @@ function useChat(options: UseChatOptions = {}): UseChatReturn {
             message: content,
             conversation_id: conversationIdRef.current,
             use_web_search: options?.useWebSearch,
+            images: options?.images,
           },
           createStreamHandlers(),
           abortController.signal,
