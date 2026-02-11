@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { streamChat, streamEditMessage, streamRegenerate } from '@/api/chat'
-import type { Message } from '@/types/chat'
+import type { ImageSummary, Message } from '@/types/chat'
 
 interface ToolCallState {
   name: string
@@ -159,12 +159,27 @@ function useChat(options: UseChatOptions = {}): UseChatReturn {
       setError(null)
       setToolCall(null)
 
+      const localImages: ImageSummary[] | undefined =
+        options?.images && options.images.length > 0
+          ? options.images.map((file, i) => ({
+              id: -(i + 1),
+              original_url: URL.createObjectURL(file),
+              thumbnail_url: URL.createObjectURL(file),
+              content_type: file.type,
+              original_size: file.size,
+              width: 0,
+              height: 0,
+              original_filename: file.name,
+            }))
+          : undefined
+
       const userMessage: Message = {
         id: crypto.randomUUID(),
         serverId: null,
         role: 'user',
         content,
         createdAt: new Date().toISOString(),
+        images: localImages,
       }
 
       const assistantMessage: Message = {
