@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { mapServerMessage, mapRole, parseToolCalls } from './messageMapper'
-import type { ServerMessage } from '@/types/chat'
+import { mapServerMessage, mapRole, parseToolCalls, mapImages } from './messageMapper'
+import type { ImageSummary, ServerMessage } from '@/types/chat'
 
 describe('mapRole', () => {
   it('maps human to user', () => {
@@ -50,6 +50,32 @@ describe('parseToolCalls', () => {
   })
 })
 
+describe('mapImages', () => {
+  const sampleImage: ImageSummary = {
+    id: 1,
+    original_url: 'https://s3.example.com/original.jpg',
+    thumbnail_url: 'https://s3.example.com/thumb.jpg',
+    content_type: 'image/jpeg',
+    original_size: 204800,
+    width: 1920,
+    height: 1080,
+    original_filename: 'photo.jpg',
+  }
+
+  it('returns undefined for undefined input', () => {
+    expect(mapImages(undefined)).toBeUndefined()
+  })
+
+  it('returns undefined for empty array', () => {
+    expect(mapImages([])).toBeUndefined()
+  })
+
+  it('returns images array when non-empty', () => {
+    const result = mapImages([sampleImage])
+    expect(result).toEqual([sampleImage])
+  })
+})
+
 describe('mapServerMessage', () => {
   const base: ServerMessage = {
     id: 42,
@@ -73,7 +99,32 @@ describe('mapServerMessage', () => {
       toolCalls: undefined,
       toolCallId: undefined,
       toolName: undefined,
+      images: undefined,
     })
+  })
+
+  it('maps message with images', () => {
+    const images: ImageSummary[] = [
+      {
+        id: 1,
+        original_url: 'https://s3.example.com/original.jpg',
+        thumbnail_url: 'https://s3.example.com/thumb.jpg',
+        content_type: 'image/jpeg',
+        original_size: 204800,
+        width: 1920,
+        height: 1080,
+        original_filename: 'photo.jpg',
+      },
+    ]
+    const msg: ServerMessage = { ...base, images }
+    const result = mapServerMessage(msg)
+    expect(result.images).toEqual(images)
+  })
+
+  it('maps message with empty images to undefined', () => {
+    const msg: ServerMessage = { ...base, images: [] }
+    const result = mapServerMessage(msg)
+    expect(result.images).toBeUndefined()
   })
 
   it('maps ai message with tool calls', () => {

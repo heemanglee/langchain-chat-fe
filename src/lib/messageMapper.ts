@@ -1,4 +1,4 @@
-import type { ServerMessage, Message, ToolCallInfo } from '@/types/chat'
+import type { ServerMessage, Message, ToolCallInfo, ImageSummary } from '@/types/chat'
 
 function mapRole(backendRole: string): 'user' | 'assistant' | 'tool' {
   switch (backendRole) {
@@ -28,6 +28,11 @@ function parseToolCalls(json: string | null): ToolCallInfo[] | undefined {
   }
 }
 
+function mapImages(images?: ImageSummary[]): ImageSummary[] | undefined {
+  if (!images || images.length === 0) return undefined
+  return images
+}
+
 function mapServerMessage(raw: ServerMessage): Message {
   return {
     id: String(raw.id),
@@ -38,7 +43,8 @@ function mapServerMessage(raw: ServerMessage): Message {
     toolCalls: parseToolCalls(raw.tool_calls_json),
     toolCallId: raw.tool_call_id ?? undefined,
     toolName: raw.tool_name ?? undefined,
+    images: mapImages(raw.images),
   }
 }
 
-export { mapServerMessage, mapRole, parseToolCalls }
+export { mapServerMessage, mapRole, parseToolCalls, mapImages }
