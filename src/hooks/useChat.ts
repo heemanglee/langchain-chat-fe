@@ -161,16 +161,19 @@ function useChat(options: UseChatOptions = {}): UseChatReturn {
 
       const localImages: ImageSummary[] | undefined =
         options?.images && options.images.length > 0
-          ? options.images.map((file, i) => ({
-              id: -(i + 1),
-              original_url: URL.createObjectURL(file),
-              thumbnail_url: URL.createObjectURL(file),
-              content_type: file.type,
-              original_size: file.size,
-              width: 0,
-              height: 0,
-              original_filename: file.name,
-            }))
+          ? options.images.map((file, i) => {
+              const blobUrl = URL.createObjectURL(file)
+              return {
+                id: -(i + 1),
+                original_url: blobUrl,
+                thumbnail_url: blobUrl,
+                content_type: file.type,
+                original_size: file.size,
+                width: 0,
+                height: 0,
+                original_filename: file.name,
+              }
+            })
           : undefined
 
       const userMessage: Message = {
