@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { Icon } from '@iconify/react'
 import { MessageEditForm } from './MessageEditForm'
+import { MessageImages } from './MessageImages'
 import type { Message } from '@/types/chat'
 
 interface UserMessageProps {
@@ -48,6 +49,9 @@ function UserMessage({ message, onEdit }: UserMessageProps) {
         <div className="rounded-2xl rounded-tr-sm bg-zinc-900 px-4 py-2.5 text-sm text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900">
           {message.content}
         </div>
+        {message.images && message.images.length > 0 && (
+          <MessageImages images={message.images} />
+        )}
         {canEdit && (
           <div className="mt-1 flex justify-end opacity-0 transition-opacity group-hover:opacity-100">
             <button

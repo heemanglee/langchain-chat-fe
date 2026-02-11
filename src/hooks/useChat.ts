@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { streamChat, streamEditMessage, streamRegenerate } from '@/api/chat'
-import type { Message } from '@/types/chat'
+import type { ImageSummary, Message } from '@/types/chat'
 
 interface ToolCallState {
   name: string
@@ -23,7 +23,7 @@ interface UseChatReturn {
   toolCall: ToolCallState | null
   sendMessage: (
     content: string,
-    options?: { useWebSearch?: boolean },
+    options?: { useWebSearch?: boolean; images?: File[] },
   ) => Promise<void>
   editMessage: (messageServerId: number, newContent: string) => Promise<void>
   regenerateMessage: (messageServerId: number) => Promise<void>
@@ -155,9 +155,26 @@ function useChat(options: UseChatOptions = {}): UseChatReturn {
   )
 
   const sendMessage = useCallback(
-    async (content: string, options?: { useWebSearch?: boolean }) => {
+    async (content: string, options?: { useWebSearch?: boolean; images?: File[] }) => {
       setError(null)
       setToolCall(null)
+
+      const localImages: ImageSummary[] | undefined =
+        options?.images && options.images.length > 0
+          ? options.images.map((file, i) => {
+              const blobUrl = URL.createObjectURL(file)
+              return {
+                id: -(i + 1),
+                original_url: blobUrl,
+                thumbnail_url: blobUrl,
+                content_type: file.type,
+                original_size: file.size,
+                width: 0,
+                height: 0,
+                original_filename: file.name,
+              }
+            })
+          : undefined
 
       const userMessage: Message = {
         id: crypto.randomUUID(),
@@ -165,6 +182,7 @@ function useChat(options: UseChatOptions = {}): UseChatReturn {
         role: 'user',
         content,
         createdAt: new Date().toISOString(),
+        images: localImages,
       }
 
       const assistantMessage: Message = {
@@ -188,6 +206,7 @@ function useChat(options: UseChatOptions = {}): UseChatReturn {
             message: content,
             conversation_id: conversationIdRef.current,
             use_web_search: options?.useWebSearch,
+            images: options?.images,
           },
           createStreamHandlers(),
           abortController.signal,

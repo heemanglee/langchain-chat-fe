@@ -24,6 +24,17 @@ export interface StreamEvent {
   data: string
 }
 
+export interface ImageSummary {
+  id: number
+  original_url: string
+  thumbnail_url: string
+  content_type: string
+  original_size: number
+  width: number
+  height: number
+  original_filename: string
+}
+
 export interface ServerMessage {
   id: number
   session_id: number
@@ -33,6 +44,7 @@ export interface ServerMessage {
   tool_call_id: string | null
   tool_name: string | null
   created_at: string
+  images?: ImageSummary[]
 }
 
 export interface ToolCallInfo {
@@ -52,6 +64,7 @@ export interface Message {
   toolCalls?: ToolCallInfo[]
   toolCallId?: string
   toolName?: string
+  images?: ImageSummary[]
 }
 
 export interface EditMessageRequest {

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { UserMessage } from './UserMessage'
-import type { Message } from '@/types/chat'
+import type { ImageSummary, Message } from '@/types/chat'
 
 function createUserMessage(overrides: Partial<Message> = {}): Message {
   return {
@@ -91,5 +91,69 @@ describe('UserMessage', () => {
     expect(
       container.querySelector('.rounded-full.bg-zinc-200'),
     ).toBeInTheDocument()
+  })
+
+  // --- 이미지 표시 테스트 ---
+
+  it('renders images when message has images', () => {
+    const images: ImageSummary[] = [
+      {
+        id: 1,
+        original_url: 'https://s3.example.com/original.jpg',
+        thumbnail_url: 'https://s3.example.com/thumb.jpg',
+        content_type: 'image/jpeg',
+        original_size: 204800,
+        width: 1920,
+        height: 1080,
+        original_filename: 'photo.jpg',
+      },
+    ]
+    render(<UserMessage message={createUserMessage({ images })} />)
+
+    expect(screen.getByAltText('photo.jpg')).toBeInTheDocument()
+    expect(screen.getByRole('link')).toHaveAttribute(
+      'href',
+      'https://s3.example.com/original.jpg',
+    )
+  })
+
+  it('does not render MessageImages when images is undefined', () => {
+    render(<UserMessage message={createUserMessage()} />)
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('does not render MessageImages when images is empty', () => {
+    render(<UserMessage message={createUserMessage({ images: [] })} />)
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('renders multiple images', () => {
+    const images: ImageSummary[] = [
+      {
+        id: 1,
+        original_url: 'https://s3.example.com/a.jpg',
+        thumbnail_url: 'https://s3.example.com/thumb-a.jpg',
+        content_type: 'image/jpeg',
+        original_size: 100000,
+        width: 800,
+        height: 600,
+        original_filename: 'a.jpg',
+      },
+      {
+        id: 2,
+        original_url: 'https://s3.example.com/b.png',
+        thumbnail_url: 'https://s3.example.com/thumb-b.png',
+        content_type: 'image/png',
+        original_size: 200000,
+        width: 1024,
+        height: 768,
+        original_filename: 'b.png',
+      },
+    ]
+    render(<UserMessage message={createUserMessage({ images })} />)
+
+    expect(screen.getByAltText('a.jpg')).toBeInTheDocument()
+    expect(screen.getByAltText('b.png')).toBeInTheDocument()
+    expect(screen.getAllByRole('link')).toHaveLength(2)
   })
 })

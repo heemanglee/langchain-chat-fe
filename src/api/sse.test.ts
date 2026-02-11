@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { streamSSE } from './sse'
+import { streamSSE, streamSSEWithFormData } from './sse'
 
 describe('streamSSE', () => {
   beforeEach(() => {
@@ -133,5 +133,104 @@ describe('streamSSE', () => {
     await streamSSE('/api/v1/chat/stream', {}, handlers)
 
     expect(handlers.onError).toHaveBeenCalledWith('서버 오류')
+  })
+})
+
+describe('streamSSEWithFormData', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    localStorage.setItem('access_token', 'test-token')
+  })
+
+  it('sends FormData without Content-Type header', async () => {
+    const encoder = new TextEncoder()
+    const sseData =
+      'data: {"event":"done","data":{"conversation_id":"c1","sources":[]}}\n\n'
+
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(sseData))
+        controller.close()
+      },
+    })
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(stream, { status: 200 }),
+    )
+
+    const handlers = {
+      onToken: vi.fn(),
+      onDone: vi.fn(),
+      onError: vi.fn(),
+    }
+
+    const formData = new FormData()
+    formData.append('message', 'hello')
+
+    await streamSSEWithFormData('/api/v1/chat/stream', formData, handlers)
+
+    const callArgs = fetchSpy.mock.calls[0]
+    const init = callArgs[1] as RequestInit
+    const headers = init.headers as Record<string, string>
+    expect(headers['Content-Type']).toBeUndefined()
+    expect(headers.Authorization).toBe('Bearer test-token')
+    expect(init.body).toBe(formData)
+    expect(handlers.onDone).toHaveBeenCalledWith({
+      conversation_id: 'c1',
+      sources: [],
+    })
+  })
+
+  it('throws on non-ok response', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(null, { status: 413 }),
+    )
+
+    const handlers = {
+      onToken: vi.fn(),
+      onDone: vi.fn(),
+      onError: vi.fn(),
+    }
+
+    await expect(
+      streamSSEWithFormData(
+        '/api/v1/chat/stream',
+        new FormData(),
+        handlers,
+      ),
+    ).rejects.toThrow('Stream request failed: 413')
+  })
+
+  it('processes SSE events from FormData response', async () => {
+    const encoder = new TextEncoder()
+    const sseData = [
+      'data: {"event":"token","data":"Hi"}\n\n',
+      'data: {"event":"done","data":{"conversation_id":"c2","sources":["src"]}}\n\n',
+    ].join('')
+
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(sseData))
+        controller.close()
+      },
+    })
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(stream, { status: 200 }),
+    )
+
+    const handlers = {
+      onToken: vi.fn(),
+      onDone: vi.fn(),
+      onError: vi.fn(),
+    }
+
+    await streamSSEWithFormData('/api/v1/chat/stream', new FormData(), handlers)
+
+    expect(handlers.onToken).toHaveBeenCalledWith('Hi')
+    expect(handlers.onDone).toHaveBeenCalledWith({
+      conversation_id: 'c2',
+      sources: ['src'],
+    })
   })
 })
