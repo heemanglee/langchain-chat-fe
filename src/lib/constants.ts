@@ -28,3 +28,38 @@ export const ACCEPTED_IMAGE_TYPES = [
 ] as const
 
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024
+
+export const LIBRARY_PAGE_SIZE = 20
+
+export const LIBRARY_ACCEPTED_FILE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+] as const
+
+export const LIBRARY_FILE_EXTENSIONS = [
+  '.jpeg',
+  '.jpg',
+  '.png',
+  '.gif',
+  '.webp',
+  '.pdf',
+  '.txt',
+  '.md',
+] as const
+
+export const LIBRARY_MAX_FILE_SIZE = 10 * 1024 * 1024
+
+export const PREVIEWABLE_CONTENT_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'text/plain',
+  'text/markdown',
+] as const

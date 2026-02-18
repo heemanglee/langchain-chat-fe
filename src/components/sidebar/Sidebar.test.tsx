@@ -19,6 +19,7 @@ vi.mock('react-router', async () => {
     ...actual,
     useNavigate: () => mockNavigate,
     useParams: () => ({ conversationId: undefined }),
+    useLocation: () => ({ pathname: '/chat' }),
   }
 })
 
@@ -76,9 +77,16 @@ describe('Sidebar', () => {
     expect(aside.className).toContain('translate-x-0')
   })
 
-  it('disables library and agents buttons', () => {
+  it('library button is enabled and agents button is disabled', () => {
     renderWithProviders(<Sidebar />)
-    expect(screen.getByText('라이브러리').closest('button')).toBeDisabled()
+    expect(screen.getByText('라이브러리').closest('button')).not.toBeDisabled()
     expect(screen.getByText('에이전트').closest('button')).toBeDisabled()
+  })
+
+  it('navigates to /library on library click', async () => {
+    const { user } = renderWithProviders(<Sidebar />)
+
+    await user.click(screen.getByText('라이브러리'))
+    expect(mockNavigate).toHaveBeenCalledWith('/library')
   })
 })
