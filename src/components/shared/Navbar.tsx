@@ -1,4 +1,5 @@
 import { Icon } from '@iconify/react'
+import { Link } from 'react-router'
 import { ThemeToggle } from './ThemeToggle'
 import { UserDropdown } from './UserDropdown'
 import { useSidebarStore } from '@/stores/sidebarStore'
@@ -17,14 +18,14 @@ function Navbar() {
           <Icon icon="solar:hamburger-menu-linear" width={20} />
         </button>
 
-        <div className="flex items-center gap-1.5">
+        <Link to="/chat" className="flex items-center gap-1.5">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 dark:bg-zinc-50">
             <div className="h-2.5 w-2.5 rounded-full bg-zinc-50 dark:bg-zinc-900" />
           </div>
           <span className="text-base font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
             RAG.OS
           </span>
-        </div>
+        </Link>
       </div>
 
       <div className="flex items-center gap-1">
