@@ -45,30 +45,19 @@ export async function streamChat(
   handlers: StreamHandlers,
   signal?: AbortSignal,
 ): Promise<void> {
-  if (request.images && request.images.length > 0) {
-    const formData = new FormData()
-    formData.append('message', request.message)
-    if (request.conversation_id) {
-      formData.append('conversation_id', request.conversation_id)
-    }
+  const formData = new FormData()
+  formData.append('message', request.message)
+  if (request.conversation_id) {
+    formData.append('conversation_id', request.conversation_id)
+  }
+  if (request.images) {
     for (const file of request.images) {
       formData.append('images', file)
     }
-    return streamSSEWithFormData(
-      '/api/v1/chat/stream',
-      formData,
-      handlers,
-      signal,
-    )
   }
-
-  return streamSSE(
+  return streamSSEWithFormData(
     '/api/v1/chat/stream',
-    {
-      message: request.message,
-      conversation_id: request.conversation_id,
-      use_web_search: request.use_web_search,
-    } satisfies ChatRequest,
+    formData,
     handlers,
     signal,
   )

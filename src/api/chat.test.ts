@@ -17,14 +17,16 @@ vi.mock('./client', () => ({
 
 vi.mock('./sse', () => ({
   streamSSE: vi.fn(),
+  streamSSEWithFormData: vi.fn(),
 }))
 
 import { apiClient } from './client'
-import { streamSSE } from './sse'
+import { streamSSE, streamSSEWithFormData } from './sse'
 
 const mockPost = vi.mocked(apiClient.post)
 const mockGet = vi.mocked(apiClient.get)
 const mockStreamSSE = vi.mocked(streamSSE)
+const mockStreamSSEWithFormData = vi.mocked(streamSSEWithFormData)
 
 describe('chat API', () => {
   beforeEach(() => {
@@ -136,7 +138,7 @@ describe('chat API', () => {
   })
 
   describe('streamChat', () => {
-    it('delegates to streamSSE with correct URL', async () => {
+    it('delegates to streamSSEWithFormData with FormData', async () => {
       const handlers = {
         onToken: vi.fn(),
         onDone: vi.fn(),
@@ -146,12 +148,51 @@ describe('chat API', () => {
 
       await streamChat({ message: 'test' }, handlers, signal)
 
-      expect(mockStreamSSE).toHaveBeenCalledWith(
+      expect(mockStreamSSEWithFormData).toHaveBeenCalledWith(
         '/api/v1/chat/stream',
-        { message: 'test' },
+        expect.any(FormData),
         handlers,
         signal,
       )
+
+      const formData = mockStreamSSEWithFormData.mock.calls[0][1] as FormData
+      expect(formData.get('message')).toBe('test')
+      expect(formData.get('conversation_id')).toBeNull()
+    })
+
+    it('includes conversation_id in FormData when provided', async () => {
+      const handlers = {
+        onToken: vi.fn(),
+        onDone: vi.fn(),
+        onError: vi.fn(),
+      }
+
+      await streamChat(
+        { message: 'test', conversation_id: 'c1' },
+        handlers,
+      )
+
+      const formData = mockStreamSSEWithFormData.mock.calls[0][1] as FormData
+      expect(formData.get('message')).toBe('test')
+      expect(formData.get('conversation_id')).toBe('c1')
+    })
+
+    it('appends images to FormData when provided', async () => {
+      const handlers = {
+        onToken: vi.fn(),
+        onDone: vi.fn(),
+        onError: vi.fn(),
+      }
+      const file = new File(['img'], 'test.png', { type: 'image/png' })
+
+      await streamChat(
+        { message: 'test', images: [file] },
+        handlers,
+      )
+
+      const formData = mockStreamSSEWithFormData.mock.calls[0][1] as FormData
+      expect(formData.get('message')).toBe('test')
+      expect(formData.getAll('images')).toHaveLength(1)
     })
   })
 
