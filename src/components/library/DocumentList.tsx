@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from '@iconify/react'
 import { useLibraryDocuments } from '@/hooks/useLibraryDocuments'
+import { useLibraryStore } from '@/stores/libraryStore'
 import { DocumentItem } from './DocumentItem'
 import { DocumentPreviewModal } from './DocumentPreviewModal'
+import { BulkActionBar } from './BulkActionBar'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { Alert } from '@/components/ui/Alert'
 
@@ -14,6 +16,14 @@ function DocumentList() {
   } | null>(null)
 
   const { data, isLoading, isError } = useLibraryDocuments(page)
+  const selectedIds = useLibraryStore((s) => s.selectedIds)
+  const toggleSelection = useLibraryStore((s) => s.toggleSelection)
+  const selectAll = useLibraryStore((s) => s.selectAll)
+  const clearSelection = useLibraryStore((s) => s.clearSelection)
+
+  useEffect(() => {
+    clearSelection()
+  }, [page, clearSelection])
 
   function handlePreview(id: number, contentType: string) {
     setPreview({ id, contentType })
@@ -45,15 +55,35 @@ function DocumentList() {
     )
   }
 
+  const documentIds = data.documents.map((d) => d.id)
+  const allSelected =
+    documentIds.length > 0 && documentIds.every((id) => selectedIds.has(id))
+
   return (
     <>
       <div className="flex-1 overflow-y-auto p-4">
+        <div className="mb-2 flex items-center gap-2 px-3">
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={() => selectAll(documentIds)}
+              className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-700"
+            />
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              전체 선택
+            </span>
+          </label>
+        </div>
+
         <div className="flex flex-col gap-2">
           {data.documents.map((doc) => (
             <DocumentItem
               key={doc.id}
               document={doc}
               onPreview={handlePreview}
+              isSelected={selectedIds.has(doc.id)}
+              onToggleSelect={toggleSelection}
             />
           ))}
         </div>
@@ -80,6 +110,8 @@ function DocumentList() {
           </div>
         )}
       </div>
+
+      <BulkActionBar />
 
       {preview && (
         <DocumentPreviewModal

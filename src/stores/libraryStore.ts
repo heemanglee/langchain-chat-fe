@@ -4,6 +4,7 @@ import type { UploadProgress } from '@/types/library'
 interface LibraryState {
   includeArchived: boolean
   uploads: UploadProgress[]
+  selectedIds: Set<number>
 
   toggleArchived: () => void
   setIncludeArchived: (value: boolean) => void
@@ -11,11 +12,15 @@ interface LibraryState {
   updateUpload: (id: string, updates: Partial<UploadProgress>) => void
   removeUpload: (id: string) => void
   clearCompletedUploads: () => void
+  toggleSelection: (id: number) => void
+  selectAll: (ids: number[]) => void
+  clearSelection: () => void
 }
 
 export const useLibraryStore = create<LibraryState>()((set) => ({
   includeArchived: false,
   uploads: [],
+  selectedIds: new Set<number>(),
 
   toggleArchived: () =>
     set((state) => ({ includeArchived: !state.includeArchived })),
@@ -42,4 +47,24 @@ export const useLibraryStore = create<LibraryState>()((set) => ({
     set((state) => ({
       uploads: state.uploads.filter((u) => u.status !== 'completed'),
     })),
+
+  toggleSelection: (id: number) =>
+    set((state) => {
+      const next = new Set(state.selectedIds)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return { selectedIds: next }
+    }),
+
+  selectAll: (ids: number[]) =>
+    set((state) => {
+      const allSelected = ids.every((id) => state.selectedIds.has(id))
+      return { selectedIds: allSelected ? new Set<number>() : new Set(ids) }
+    }),
+
+  clearSelection: () =>
+    set({ selectedIds: new Set<number>() }),
 }))

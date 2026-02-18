@@ -2,12 +2,15 @@ import { Icon } from '@iconify/react'
 import { cn } from '@/lib/utils'
 import { formatRelativeTime, formatFileSize } from '@/lib/format'
 import { useUpdateDocumentStatus, useDeleteDocument } from '@/hooks/useLibraryMutations'
+import { SummaryStatusBadge } from './SummaryStatusBadge'
 import { API_BASE_URL } from '@/lib/constants'
 import type { LibraryDocument } from '@/types/library'
 
 interface DocumentItemProps {
   document: LibraryDocument
   onPreview: (id: number, contentType: string) => void
+  isSelected?: boolean
+  onToggleSelect?: (id: number) => void
 }
 
 function getFileIcon(contentType: string): string {
@@ -16,12 +19,16 @@ function getFileIcon(contentType: string): string {
   return 'solar:document-linear'
 }
 
-function DocumentItem({ document: doc, onPreview }: DocumentItemProps) {
+function DocumentItem({
+  document: doc,
+  onPreview,
+  isSelected = false,
+  onToggleSelect,
+}: DocumentItemProps) {
   const updateStatus = useUpdateDocumentStatus()
   const deleteDoc = useDeleteDocument()
 
   const isArchived = doc.status === 'archived'
-  const isSummarizing = doc.summary_status === 'pending' || doc.summary_status === 'processing'
 
   function handleDownload() {
     window.open(
@@ -47,6 +54,17 @@ function DocumentItem({ document: doc, onPreview }: DocumentItemProps) {
         isArchived && 'opacity-50',
       )}
     >
+      {onToggleSelect && (
+        <label className="mt-0.5 flex flex-shrink-0 cursor-pointer items-center">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(doc.id)}
+            className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-700"
+          />
+        </label>
+      )}
+
       <div className="mt-0.5 flex-shrink-0 text-zinc-400 dark:text-zinc-500">
         <Icon icon={getFileIcon(doc.content_type)} width={20} />
       </div>
@@ -61,11 +79,7 @@ function DocumentItem({ document: doc, onPreview }: DocumentItemProps) {
               보관됨
             </span>
           )}
-          {isSummarizing && (
-            <span className="flex-shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-              요약 중
-            </span>
-          )}
+          <SummaryStatusBadge summaryStatus={doc.summary_status} />
         </div>
 
         {doc.summary && (

@@ -14,9 +14,9 @@ const mockDelete = vi.fn(() => ({ json: mockJson }))
 
 vi.mock('./client', () => ({
   apiClient: {
-    get: (...args: unknown[]) => mockGet(...args),
-    patch: (...args: unknown[]) => mockPatch(...args),
-    delete: (...args: unknown[]) => mockDelete(...args),
+    get: (...args: unknown[]) => mockGet(...(args as [])),
+    patch: (...args: unknown[]) => mockPatch(...(args as [])),
+    delete: (...args: unknown[]) => mockDelete(...(args as [])),
   },
 }))
 
