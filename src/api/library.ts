@@ -43,6 +43,12 @@ export function deleteDocument(id: number): Promise<ApiResponse<null>> {
   return apiClient.delete(`api/v1/library/documents/${id}`).json()
 }
 
+export function reindexDocument(
+  id: number,
+): Promise<ApiResponse<LibraryDocument>> {
+  return apiClient.post(`api/v1/library/documents/${id}/reindex`).json()
+}
+
 export function fetchStorageUsage(): Promise<ApiResponse<StorageUsage>> {
   return apiClient.get('api/v1/library/storage').json()
 }

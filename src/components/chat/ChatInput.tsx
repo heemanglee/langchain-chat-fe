@@ -1,6 +1,8 @@
 import {
   useState,
   useCallback,
+  useEffect,
+  useMemo,
   useRef,
   type KeyboardEvent,
   type FormEvent,
@@ -11,11 +13,23 @@ import { Icon } from '@iconify/react'
 import { useAutoResize } from '@/hooks/useAutoResize'
 import { MAX_MESSAGE_LENGTH, MAX_IMAGE_COUNT, ACCEPTED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '@/lib/constants'
 import { ImagePreviewList } from './ImagePreviewList'
+import { IndexStatusBadge } from '@/components/library/IndexStatusBadge'
+import {
+  isReadyForSelection,
+  normalizeIndexStatus,
+} from '@/lib/libraryIndexStatus'
+import type { SendMessageOptions } from '@/types/chat'
+import type { LibraryDocument } from '@/types/library'
 
 interface ChatInputProps {
-  onSend: (content: string, options?: { useWebSearch?: boolean; images?: File[] }) => void
+  onSend: (content: string, options?: SendMessageOptions) => void
   isStreaming: boolean
   onStop: () => void
+  documents?: LibraryDocument[]
+  isDocumentsLoading?: boolean
+  selectedDocumentIds?: number[]
+  onSelectedDocumentIdsChange?: (ids: number[]) => void
+  onReindexDocument?: (id: number) => void
 }
 
 function validateImageFile(file: File): string | null {
@@ -28,31 +42,107 @@ function validateImageFile(file: File): string | null {
   return null
 }
 
-function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
+function ChatInput({
+  onSend,
+  isStreaming,
+  onStop,
+  documents = [],
+  isDocumentsLoading = false,
+  selectedDocumentIds = [],
+  onSelectedDocumentIdsChange,
+  onReindexDocument,
+}: ChatInputProps) {
   const [input, setInput] = useState('')
   const [useWebSearch, setUseWebSearch] = useState(false)
   const [images, setImages] = useState<File[]>([])
   const [isDragging, setIsDragging] = useState(false)
+  const [isDocumentSelectorOpen, setIsDocumentSelectorOpen] = useState(false)
   const dragCounterRef = useRef(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const documentMenuRef = useRef<HTMLDivElement>(null)
   const { textareaRef, resize, reset } = useAutoResize()
 
   const canSend = (input.trim().length > 0 || images.length > 0) && !isStreaming
+  const selectedDocumentSet = useMemo(
+    () => new Set(selectedDocumentIds),
+    [selectedDocumentIds],
+  )
+
+  const selectedDocuments = useMemo(
+    () => documents.filter((doc) => selectedDocumentSet.has(doc.id)),
+    [documents, selectedDocumentSet],
+  )
+
+  useEffect(() => {
+    if (isDocumentsLoading) return
+    if (!onSelectedDocumentIdsChange || selectedDocumentIds.length === 0) return
+
+    const readyIds = new Set(
+      documents
+        .filter((doc) => isReadyForSelection(doc.index_status))
+        .map((doc) => doc.id),
+    )
+
+    const filtered = selectedDocumentIds.filter((id) => readyIds.has(id))
+    if (filtered.length !== selectedDocumentIds.length) {
+      onSelectedDocumentIdsChange(filtered)
+    }
+  }, [
+    documents,
+    isDocumentsLoading,
+    onSelectedDocumentIdsChange,
+    selectedDocumentIds,
+  ])
+
+  useEffect(() => {
+    if (!isDocumentSelectorOpen) return
+
+    function handleOutsideClick(event: MouseEvent) {
+      const target = event.target as Node | null
+      if (documentMenuRef.current && !documentMenuRef.current.contains(target)) {
+        setIsDocumentSelectorOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [isDocumentSelectorOpen])
+
+  const toggleDocumentSelection = useCallback(
+    (documentId: number) => {
+      if (!onSelectedDocumentIdsChange) return
+
+      const next = selectedDocumentSet.has(documentId)
+        ? selectedDocumentIds.filter((id) => id !== documentId)
+        : [...selectedDocumentIds, documentId]
+
+      onSelectedDocumentIdsChange(next)
+    },
+    [onSelectedDocumentIdsChange, selectedDocumentIds, selectedDocumentSet],
+  )
 
   const handleSubmit = useCallback(
     (e?: FormEvent) => {
       e?.preventDefault()
       if (!canSend) return
 
-      onSend(input.trim(), {
+      const sendOptions: SendMessageOptions = {
         useWebSearch,
-        images: images.length > 0 ? images : undefined,
-      })
+      }
+      if (selectedDocumentIds.length > 0) {
+        sendOptions.selectedDocumentIds = selectedDocumentIds
+      }
+      if (images.length > 0) {
+        sendOptions.images = images
+      }
+
+      onSend(input.trim(), sendOptions)
       setInput('')
       setImages([])
+      setIsDocumentSelectorOpen(false)
       reset()
     },
-    [canSend, input, useWebSearch, images, onSend, reset],
+    [canSend, input, useWebSearch, selectedDocumentIds, images, onSend, reset],
   )
 
   const handleKeyDown = useCallback(
@@ -209,6 +299,104 @@ function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
                 <span className="hidden sm:inline">웹 검색</span>
               </button>
 
+              <div className="relative" ref={documentMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsDocumentSelectorOpen((prev) => !prev)}
+                  disabled={isStreaming}
+                  className={`flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors disabled:opacity-40 ${
+                    selectedDocumentIds.length > 0
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                      : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-300'
+                  }`}
+                  aria-label="참조 문서 선택"
+                  aria-expanded={isDocumentSelectorOpen}
+                >
+                  <Icon icon="solar:documents-linear" width={16} />
+                  <span className="hidden sm:inline">
+                    문서
+                    {selectedDocumentIds.length > 0
+                      ? ` (${selectedDocumentIds.length})`
+                      : ''}
+                  </span>
+                </button>
+
+                {isDocumentSelectorOpen && (
+                  <div className="absolute bottom-11 left-0 z-20 w-[320px] overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+                    <div className="border-b border-zinc-100 px-3 py-2 dark:border-zinc-700">
+                      <p className="text-xs font-medium text-zinc-700 dark:text-zinc-200">
+                        참조 문서 선택
+                      </p>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        검색 가능한 문서만 선택할 수 있습니다
+                      </p>
+                    </div>
+
+                    <div className="max-h-72 overflow-y-auto p-2">
+                      {isDocumentsLoading ? (
+                        <p className="px-2 py-3 text-xs text-zinc-500 dark:text-zinc-400">
+                          문서를 불러오는 중...
+                        </p>
+                      ) : documents.length === 0 ? (
+                        <p className="px-2 py-3 text-xs text-zinc-500 dark:text-zinc-400">
+                          업로드된 문서가 없습니다
+                        </p>
+                      ) : (
+                        <ul className="space-y-1.5">
+                          {documents.map((doc) => {
+                            const ready = isReadyForSelection(doc.index_status)
+                            const failed =
+                              normalizeIndexStatus(doc.index_status) === 'failed'
+
+                            return (
+                              <li
+                                key={doc.id}
+                                className="rounded-lg border border-zinc-100 px-2 py-2 dark:border-zinc-800"
+                              >
+                                <div className="flex items-start gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={!ready}
+                                    onClick={() => toggleDocumentSelection(doc.id)}
+                                    className="flex min-w-0 flex-1 items-start gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedDocumentSet.has(doc.id)}
+                                      readOnly
+                                      disabled={!ready}
+                                      className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-700"
+                                    />
+                                    <div className="min-w-0">
+                                      <p className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-200">
+                                        {doc.original_filename}
+                                      </p>
+                                      <div className="mt-1">
+                                        <IndexStatusBadge status={doc.index_status} />
+                                      </div>
+                                    </div>
+                                  </button>
+
+                                  {failed && onReindexDocument && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onReindexDocument(doc.id)}
+                                      className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700 transition-colors hover:bg-red-100 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+                                    >
+                                      재인덱싱
+                                    </button>
+                                  )}
+                                </div>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -269,6 +457,21 @@ function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
                 </button>
               )}
             </div>
+
+            {selectedDocuments.length > 0 && (
+              <div className="flex flex-wrap gap-1 border-t border-zinc-100 px-2 pb-2 pt-1 dark:border-zinc-700">
+                {selectedDocuments.map((doc) => (
+                  <span
+                    key={doc.id}
+                    className="inline-flex max-w-full items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                    title={doc.original_filename}
+                  >
+                    <Icon icon="solar:documents-linear" width={12} />
+                    <span className="truncate">{doc.original_filename}</span>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </form>
       </div>

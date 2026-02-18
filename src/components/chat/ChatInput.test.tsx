@@ -2,10 +2,27 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ChatInput } from './ChatInput'
+import type { LibraryDocument } from '@/types/library'
 
 function createFile(name: string, type = 'image/jpeg', size = 1024): File {
   const buffer = new ArrayBuffer(size)
   return new File([buffer], name, { type })
+}
+
+function createDocument(overrides: Partial<LibraryDocument> = {}): LibraryDocument {
+  return {
+    id: 1,
+    original_filename: 'doc.pdf',
+    content_type: 'application/pdf',
+    file_size: 1024,
+    status: 'active',
+    summary: null,
+    summary_status: 'completed',
+    index_status: 'ready',
+    created_at: '2026-02-18T00:00:00Z',
+    updated_at: '2026-02-18T00:00:00Z',
+    ...overrides,
+  }
 }
 
 describe('ChatInput', () => {
@@ -58,10 +75,12 @@ describe('ChatInput', () => {
     )
     await user.click(screen.getByRole('button', { name: '메시지 전송' }))
 
-    expect(onSend).toHaveBeenCalledWith('안녕하세요', {
-      useWebSearch: false,
-      images: undefined,
-    })
+    expect(onSend).toHaveBeenCalledWith(
+      '안녕하세요',
+      expect.objectContaining({
+        useWebSearch: false,
+      }),
+    )
   })
 
   it('clears input after send', async () => {
@@ -108,10 +127,12 @@ describe('ChatInput', () => {
     )
     await user.click(screen.getByRole('button', { name: '메시지 전송' }))
 
-    expect(onSend).toHaveBeenCalledWith('검색', {
-      useWebSearch: true,
-      images: undefined,
-    })
+    expect(onSend).toHaveBeenCalledWith(
+      '검색',
+      expect.objectContaining({
+        useWebSearch: true,
+      }),
+    )
   })
 
   it('submits on Enter key', async () => {
@@ -122,10 +143,12 @@ describe('ChatInput', () => {
     const textarea = screen.getByPlaceholderText('메시지를 입력하세요...')
     await user.type(textarea, '메시지{Enter}')
 
-    expect(onSend).toHaveBeenCalledWith('메시지', {
-      useWebSearch: false,
-      images: undefined,
-    })
+    expect(onSend).toHaveBeenCalledWith(
+      '메시지',
+      expect.objectContaining({
+        useWebSearch: false,
+      }),
+    )
   })
 
   it('does not submit on Shift+Enter', async () => {
@@ -137,6 +160,92 @@ describe('ChatInput', () => {
     await user.type(textarea, '줄1{Shift>}{Enter}{/Shift}줄2')
 
     expect(onSend).not.toHaveBeenCalled()
+  })
+
+  it('selects ready document from selector', async () => {
+    const user = userEvent.setup()
+    const onSelectedDocumentIdsChange = vi.fn()
+    render(
+      <ChatInput
+        {...defaultProps}
+        documents={[createDocument({ id: 10, original_filename: 'ready.pdf' })]}
+        selectedDocumentIds={[]}
+        onSelectedDocumentIdsChange={onSelectedDocumentIdsChange}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '참조 문서 선택' }))
+    await user.click(screen.getByRole('button', { name: /ready\.pdf/i }))
+
+    expect(onSelectedDocumentIdsChange).toHaveBeenCalledWith([10])
+  })
+
+  it('disables non-ready documents in selector', async () => {
+    const user = userEvent.setup()
+    render(
+      <ChatInput
+        {...defaultProps}
+        documents={[
+          createDocument({
+            id: 11,
+            original_filename: 'processing.pdf',
+            index_status: 'processing',
+          }),
+        ]}
+        selectedDocumentIds={[]}
+        onSelectedDocumentIdsChange={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '참조 문서 선택' }))
+    expect(screen.getByRole('button', { name: /processing\.pdf/i })).toBeDisabled()
+  })
+
+  it('calls reindex action for failed document', async () => {
+    const user = userEvent.setup()
+    const onReindexDocument = vi.fn()
+    render(
+      <ChatInput
+        {...defaultProps}
+        documents={[
+          createDocument({
+            id: 12,
+            original_filename: 'failed.pdf',
+            index_status: 'failed',
+          }),
+        ]}
+        selectedDocumentIds={[]}
+        onSelectedDocumentIdsChange={vi.fn()}
+        onReindexDocument={onReindexDocument}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '참조 문서 선택' }))
+    await user.click(screen.getByRole('button', { name: '재인덱싱' }))
+
+    expect(onReindexDocument).toHaveBeenCalledWith(12)
+  })
+
+  it('includes selected document ids when sending', async () => {
+    const onSend = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <ChatInput
+        {...defaultProps}
+        onSend={onSend}
+        documents={[createDocument({ id: 13, original_filename: 'selected.pdf' })]}
+        selectedDocumentIds={[13]}
+        onSelectedDocumentIdsChange={vi.fn()}
+      />,
+    )
+
+    await user.type(screen.getByPlaceholderText('메시지를 입력하세요...'), '문서 질문')
+    await user.click(screen.getByRole('button', { name: '메시지 전송' }))
+
+    expect(onSend).toHaveBeenCalledWith(
+      '문서 질문',
+      expect.objectContaining({ selectedDocumentIds: [13] }),
+    )
   })
 
   // --- 이미지 첨부 테스트 ---

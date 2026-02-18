@@ -1,5 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { updateDocumentStatus, deleteDocument } from '@/api/library'
+import {
+  updateDocumentStatus,
+  deleteDocument,
+  reindexDocument,
+} from '@/api/library'
 import type { UpdateStatusRequest } from '@/types/library'
 
 function useUpdateDocumentStatus() {
@@ -26,4 +30,15 @@ function useDeleteDocument() {
   })
 }
 
-export { useUpdateDocumentStatus, useDeleteDocument }
+function useReindexDocument() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: number) => reindexDocument(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['library', 'documents'] })
+    },
+  })
+}
+
+export { useUpdateDocumentStatus, useDeleteDocument, useReindexDocument }

@@ -1,14 +1,47 @@
+export interface Anchor {
+  anchor_id: string
+  page: number | null
+  line_start: number | null
+  line_end: number | null
+  start_char: number
+  end_char: number
+  bbox: number[] | null
+  quote: string
+}
+
+export interface WebCitation {
+  citation_id: string
+  source_type: 'web'
+  title: string | null
+  snippet: string | null
+  url: string
+}
+
+export interface LibraryCitation {
+  citation_id: string
+  source_type: 'library'
+  title: string
+  snippet: string | null
+  file_id: number
+  file_name: string
+  anchors: Anchor[]
+}
+
+export type Citation = WebCitation | LibraryCitation
+
 export interface ChatRequest {
   message: string
   conversation_id?: string
   use_web_search?: boolean
+  selected_document_ids?: number[]
+  images?: File[]
 }
 
 export interface ChatResponse {
   message: string
   conversation_id: string
   session_id: number
-  sources: string[]
+  sources: Citation[]
   created_at: string
 }
 
@@ -22,6 +55,16 @@ export type StreamEventType =
 export interface StreamEvent {
   event: StreamEventType
   data: string
+}
+
+export interface StreamDonePayload {
+  conversation_id: string
+  session_id?: number
+  is_new_session?: boolean
+  user_message_id?: number | null
+  ai_message_id?: number | null
+  image_ids?: number[]
+  sources: Citation[]
 }
 
 export interface ImageSummary {
@@ -58,13 +101,19 @@ export interface Message {
   serverId: number | null
   role: 'user' | 'assistant' | 'tool'
   content: string
-  sources?: string[]
+  sources?: Citation[]
   isStreaming?: boolean
   createdAt: string
   toolCalls?: ToolCallInfo[]
   toolCallId?: string
   toolName?: string
   images?: ImageSummary[]
+}
+
+export interface SendMessageOptions {
+  useWebSearch?: boolean
+  images?: File[]
+  selectedDocumentIds?: number[]
 }
 
 export interface EditMessageRequest {
