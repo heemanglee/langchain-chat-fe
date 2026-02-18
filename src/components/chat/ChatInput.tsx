@@ -1,4 +1,12 @@
-import { useState, useCallback, useRef, type KeyboardEvent, type FormEvent, type ChangeEvent } from 'react'
+import {
+  useState,
+  useCallback,
+  useRef,
+  type KeyboardEvent,
+  type FormEvent,
+  type ChangeEvent,
+  type DragEvent,
+} from 'react'
 import { Icon } from '@iconify/react'
 import { useAutoResize } from '@/hooks/useAutoResize'
 import { MAX_MESSAGE_LENGTH, MAX_IMAGE_COUNT, ACCEPTED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '@/lib/constants'
@@ -24,6 +32,8 @@ function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
   const [input, setInput] = useState('')
   const [useWebSearch, setUseWebSearch] = useState(false)
   const [images, setImages] = useState<File[]>([])
+  const [isDragging, setIsDragging] = useState(false)
+  const dragCounterRef = useRef(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { textareaRef, resize, reset } = useAutoResize()
 
@@ -55,46 +65,94 @@ function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
     [handleSubmit],
   )
 
-  const handleImageSelect = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files ?? [])
+  const addImageFiles = useCallback(
+    (files: File[]) => {
       if (files.length === 0) return
 
       const remaining = MAX_IMAGE_COUNT - images.length
       if (remaining <= 0) {
         alert(`이미지는 최대 ${MAX_IMAGE_COUNT}장까지 첨부할 수 있습니다.`)
-        e.target.value = ''
         return
       }
 
       const toAdd = files.slice(0, remaining)
-      const errors: string[] = []
+      const messages: string[] = []
       const valid: File[] = []
 
       for (const file of toAdd) {
         const error = validateImageFile(file)
         if (error) {
-          errors.push(error)
+          messages.push(error)
         } else {
           valid.push(file)
         }
       }
 
-      if (errors.length > 0) {
-        alert(errors.join('\n'))
+      if (files.length > remaining) {
+        messages.push(`이미지는 최대 ${MAX_IMAGE_COUNT}장까지 첨부할 수 있습니다. ${remaining}장만 추가되었습니다.`)
       }
 
-      if (files.length > remaining) {
-        alert(`이미지는 최대 ${MAX_IMAGE_COUNT}장까지 첨부할 수 있습니다. ${remaining}장만 추가되었습니다.`)
+      if (messages.length > 0) {
+        alert(messages.join('\n'))
       }
 
       if (valid.length > 0) {
         setImages((prev) => [...prev, ...valid])
       }
-
-      e.target.value = ''
     },
     [images.length],
+  )
+
+  const handleImageSelect = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? [])
+      addImageFiles(files)
+      e.target.value = ''
+    },
+    [addImageFiles],
+  )
+
+  const handleDragEnter = useCallback(
+    (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      dragCounterRef.current += 1
+      if (dragCounterRef.current === 1 && !isStreaming) {
+        setIsDragging(true)
+      }
+    },
+    [isStreaming],
+  )
+
+  const handleDragOver = useCallback((e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  const handleDragLeave = useCallback((e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1)
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false)
+    }
+  }, [])
+
+  const handleDrop = useCallback(
+    (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      dragCounterRef.current = 0
+      setIsDragging(false)
+
+      if (isStreaming) return
+
+      const files = Array.from(e.dataTransfer.files).filter((f) =>
+        (ACCEPTED_IMAGE_TYPES as readonly string[]).includes(f.type),
+      )
+      addImageFiles(files)
+    },
+    [isStreaming, addImageFiles],
   )
 
   const handleImageRemove = useCallback((index: number) => {
@@ -102,10 +160,33 @@ function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
   }, [])
 
   return (
-    <div className="border-t border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+    <div
+      data-testid="chat-input-container"
+      className="border-t border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <div className="mx-auto max-w-3xl">
         <form onSubmit={handleSubmit} className="relative">
-          <div className="rounded-xl border border-zinc-200 bg-white transition-colors focus-within:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:focus-within:border-zinc-500">
+          <div
+            className={`rounded-xl border bg-white transition-colors focus-within:border-zinc-400 dark:bg-zinc-800 dark:focus-within:border-zinc-500 ${
+              isDragging
+                ? 'border-blue-400 bg-blue-50/50 dark:border-blue-500 dark:bg-blue-950/30'
+                : 'border-zinc-200 dark:border-zinc-700'
+            }`}
+          >
+            {isDragging && (
+              <div
+                className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-blue-600 dark:text-blue-400"
+                role="status"
+                aria-live="polite"
+              >
+                <Icon icon="solar:upload-minimalistic-linear" width={20} />
+                <span>이미지를 여기에 놓으세요</span>
+              </div>
+            )}
             {images.length > 0 && (
               <div className="border-b border-zinc-100 pt-2 dark:border-zinc-700">
                 <ImagePreviewList images={images} onRemove={handleImageRemove} />

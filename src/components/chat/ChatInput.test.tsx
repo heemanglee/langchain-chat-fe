@@ -270,4 +270,95 @@ describe('ChatInput', () => {
     render(<ChatInput {...defaultProps} isStreaming={true} />)
     expect(screen.getByLabelText('이미지 첨부')).toBeDisabled()
   })
+
+  // --- 드래그앤드롭 테스트 ---
+
+  function createDragEvent(files: File[]) {
+    const dataTransfer = {
+      files,
+      types: ['Files'],
+      items: files.map((f) => ({ kind: 'file', type: f.type, getAsFile: () => f })),
+    }
+    return { dataTransfer }
+  }
+
+  function getDropTarget() {
+    return screen.getByTestId('chat-input-container')
+  }
+
+  it('shows drop zone overlay on drag enter', () => {
+    render(<ChatInput {...defaultProps} />)
+    fireEvent.dragEnter(getDropTarget(), createDragEvent([createFile('test.jpg')]))
+
+    expect(screen.getByText('이미지를 여기에 놓으세요')).toBeInTheDocument()
+  })
+
+  it('hides drop zone overlay on drag leave', () => {
+    render(<ChatInput {...defaultProps} />)
+    const container = getDropTarget()
+
+    fireEvent.dragEnter(container, createDragEvent([createFile('test.jpg')]))
+    expect(screen.getByText('이미지를 여기에 놓으세요')).toBeInTheDocument()
+
+    fireEvent.dragLeave(container, createDragEvent([]))
+    expect(screen.queryByText('이미지를 여기에 놓으세요')).not.toBeInTheDocument()
+  })
+
+  it('adds images on drop', () => {
+    render(<ChatInput {...defaultProps} />)
+    const file = createFile('dropped.jpg')
+    fireEvent.drop(getDropTarget(), createDragEvent([file]))
+
+    expect(screen.getByAltText('dropped.jpg')).toBeInTheDocument()
+  })
+
+  it('filters non-image files on drop', () => {
+    render(<ChatInput {...defaultProps} />)
+    const imageFile = createFile('photo.jpg', 'image/jpeg')
+    const textFile = new File(['hello'], 'note.txt', { type: 'text/plain' })
+    fireEvent.drop(getDropTarget(), createDragEvent([imageFile, textFile]))
+
+    expect(screen.getByAltText('photo.jpg')).toBeInTheDocument()
+    expect(screen.queryByText('note.txt')).not.toBeInTheDocument()
+  })
+
+  it('ignores drop while streaming', () => {
+    render(<ChatInput {...defaultProps} isStreaming={true} />)
+    const file = createFile('dropped.jpg')
+    fireEvent.drop(getDropTarget(), createDragEvent([file]))
+
+    expect(screen.queryByAltText('dropped.jpg')).not.toBeInTheDocument()
+  })
+
+  it('does not show drop zone while streaming', () => {
+    render(<ChatInput {...defaultProps} isStreaming={true} />)
+    fireEvent.dragEnter(getDropTarget(), createDragEvent([createFile('test.jpg')]))
+
+    expect(screen.queryByText('이미지를 여기에 놓으세요')).not.toBeInTheDocument()
+  })
+
+  it('rejects drop when at max image count', () => {
+    render(<ChatInput {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+
+    fireEvent.change(fileInput, {
+      target: {
+        files: [
+          createFile('a.jpg'),
+          createFile('b.jpg'),
+          createFile('c.jpg'),
+          createFile('d.jpg'),
+          createFile('e.jpg'),
+        ],
+      },
+    })
+    expect(screen.getByText('5/5')).toBeInTheDocument()
+
+    fireEvent.drop(getDropTarget(), createDragEvent([createFile('f.jpg')]))
+
+    expect(globalThis.alert).toHaveBeenCalledWith(
+      expect.stringContaining('최대 5장'),
+    )
+    expect(screen.queryByAltText('f.jpg')).not.toBeInTheDocument()
+  })
 })
