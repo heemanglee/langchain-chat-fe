@@ -1,7 +1,9 @@
 import '@testing-library/jest-dom/vitest'
 
 beforeEach(() => {
-  localStorage.clear()
+  if (typeof localStorage !== 'undefined' && typeof localStorage.clear === 'function') {
+    localStorage.clear()
+  }
 })
 
 Object.defineProperty(navigator, 'clipboard', {
