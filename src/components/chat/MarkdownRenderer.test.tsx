@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MarkdownRenderer } from './MarkdownRenderer'
 
 describe('MarkdownRenderer', () => {
@@ -44,5 +45,61 @@ describe('MarkdownRenderer', () => {
   it('renders heading', () => {
     render(<MarkdownRenderer content="## 제목" />)
     expect(screen.getByText('제목')).toBeInTheDocument()
+  })
+
+  it('renders [cite:N] as clickable citation button', async () => {
+    const user = userEvent.setup()
+    const onCitationClick = vi.fn()
+    render(
+      <MarkdownRenderer
+        content="요약 문장입니다. [cite:3]"
+        onCitationClick={onCitationClick}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '출처 3' }))
+    expect(onCitationClick).toHaveBeenCalledWith('lib-3')
+  })
+
+  it('converts escaped citation markers to clickable button', async () => {
+    const user = userEvent.setup()
+    const onCitationClick = vi.fn()
+    render(
+      <MarkdownRenderer
+        content={String.raw`요약 문장입니다. \[cite:2\]`}
+        onCitationClick={onCitationClick}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '출처 2' }))
+    expect(onCitationClick).toHaveBeenCalledWith('lib-2')
+  })
+
+  it('converts localized citation markers to clickable button', async () => {
+    const user = userEvent.setup()
+    const onCitationClick = vi.fn()
+    render(
+      <MarkdownRenderer
+        content="요약 문장입니다. [시민투입:3]"
+        onCitationClick={onCitationClick}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '출처 3' }))
+    expect(onCitationClick).toHaveBeenCalledWith('lib-3')
+  })
+
+  it('supports full-width colon in citation markers', async () => {
+    const user = userEvent.setup()
+    const onCitationClick = vi.fn()
+    render(
+      <MarkdownRenderer
+        content="요약 문장입니다. [시민투입：4]"
+        onCitationClick={onCitationClick}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '출처 4' }))
+    expect(onCitationClick).toHaveBeenCalledWith('lib-4')
   })
 })

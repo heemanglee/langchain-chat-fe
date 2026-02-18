@@ -1,9 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { streamSSE, streamSSEWithFormData } from './sse'
 
+function setupMockLocalStorage() {
+  const store: Record<string, string> = {}
+  vi.stubGlobal('localStorage', {
+    getItem: vi.fn((key: string) => store[key] ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      store[key] = value
+    }),
+    removeItem: vi.fn((key: string) => {
+      delete store[key]
+    }),
+    clear: vi.fn(() => {
+      for (const key of Object.keys(store)) {
+        delete store[key]
+      }
+    }),
+  })
+}
+
 describe('streamSSE', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    setupMockLocalStorage()
     localStorage.setItem('access_token', 'test-token')
   })
 
@@ -21,7 +40,7 @@ describe('streamSSE', () => {
       'data: {"event":"token","data":"Hello"}\n\n',
       'data: {"event":"tool_call","data":{"name":"search"}}\n\n',
       'data: {"event":"tool_result","data":{"result":"found"}}\n\n',
-      'data: {"event":"done","data":{"conversation_id":"c1","sources":["s1"]}}\n\n',
+      'data: {"event":"done","data":{"conversation_id":"c1","sources":[{"citation_id":"web-1","source_type":"web","title":"검색","snippet":null,"url":"https://example.com"}]}}\n\n',
     ].join('')
 
     const stream = new ReadableStream({
@@ -42,7 +61,15 @@ describe('streamSSE', () => {
     expect(handlers.onToolResult).toHaveBeenCalledWith({ result: 'found' })
     expect(handlers.onDone).toHaveBeenCalledWith({
       conversation_id: 'c1',
-      sources: ['s1'],
+      sources: [
+        {
+          citation_id: 'web-1',
+          source_type: 'web',
+          title: '검색',
+          snippet: null,
+          url: 'https://example.com',
+        },
+      ],
     })
   })
 
@@ -139,6 +166,7 @@ describe('streamSSE', () => {
 describe('streamSSEWithFormData', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    setupMockLocalStorage()
     localStorage.setItem('access_token', 'test-token')
   })
 
@@ -205,7 +233,7 @@ describe('streamSSEWithFormData', () => {
     const encoder = new TextEncoder()
     const sseData = [
       'data: {"event":"token","data":"Hi"}\n\n',
-      'data: {"event":"done","data":{"conversation_id":"c2","sources":["src"]}}\n\n',
+      'data: {"event":"done","data":{"conversation_id":"c2","sources":[{"citation_id":"lib-1","source_type":"library","title":"문서","snippet":null,"file_id":1,"file_name":"doc.pdf","anchors":[]}]}}\n\n',
     ].join('')
 
     const stream = new ReadableStream({
@@ -230,7 +258,57 @@ describe('streamSSEWithFormData', () => {
     expect(handlers.onToken).toHaveBeenCalledWith('Hi')
     expect(handlers.onDone).toHaveBeenCalledWith({
       conversation_id: 'c2',
-      sources: ['src'],
+      sources: [
+        {
+          citation_id: 'lib-1',
+          source_type: 'library',
+          title: '문서',
+          snippet: null,
+          file_id: 1,
+          file_name: 'doc.pdf',
+          anchors: [],
+        },
+      ],
+    })
+  })
+
+  it('parses done payload when data is JSON string', async () => {
+    const encoder = new TextEncoder()
+    const sseData =
+      'data: {"event":"done","data":"{\\"conversation_id\\":\\"c3\\",\\"sources\\":[{\\"citation_id\\":\\"lib-3\\",\\"source_type\\":\\"library\\",\\"title\\":\\"문서\\",\\"snippet\\":null,\\"file_id\\":15,\\"file_name\\":\\"doc.pdf\\",\\"anchors\\":[]}]}"}\n\n'
+
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(sseData))
+        controller.close()
+      },
+    })
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(stream, { status: 200 }),
+    )
+
+    const handlers = {
+      onToken: vi.fn(),
+      onDone: vi.fn(),
+      onError: vi.fn(),
+    }
+
+    await streamSSEWithFormData('/api/v1/chat/stream', new FormData(), handlers)
+
+    expect(handlers.onDone).toHaveBeenCalledWith({
+      conversation_id: 'c3',
+      sources: [
+        {
+          citation_id: 'lib-3',
+          source_type: 'library',
+          title: '문서',
+          snippet: null,
+          file_id: 15,
+          file_name: 'doc.pdf',
+          anchors: [],
+        },
+      ],
     })
   })
 })

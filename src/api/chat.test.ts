@@ -194,6 +194,22 @@ describe('chat API', () => {
       expect(formData.get('message')).toBe('test')
       expect(formData.getAll('images')).toHaveLength(1)
     })
+
+    it('appends selected_document_ids as JSON when provided', async () => {
+      const handlers = {
+        onToken: vi.fn(),
+        onDone: vi.fn(),
+        onError: vi.fn(),
+      }
+
+      await streamChat(
+        { message: 'test', selected_document_ids: [1, 3] },
+        handlers,
+      )
+
+      const formData = mockStreamSSEWithFormData.mock.calls[0][1] as FormData
+      expect(formData.get('selected_document_ids')).toBe('[1,3]')
+    })
   })
 
   describe('streamEditMessage', () => {

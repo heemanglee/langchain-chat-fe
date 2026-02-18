@@ -3,7 +3,7 @@ import { ChatMessage } from './ChatMessage'
 import { ToolCallIndicator } from './ToolCallIndicator'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { useAutoScroll } from '@/hooks/useAutoScroll'
-import type { Message } from '@/types/chat'
+import type { LibraryCitation, Message } from '@/types/chat'
 import type { ToolCallState } from '@/hooks/useChat'
 
 interface ChatMessageListProps {
@@ -12,6 +12,11 @@ interface ChatMessageListProps {
   isLoading?: boolean
   onEdit?: (serverId: number, newContent: string) => void
   onRegenerate?: (serverId: number) => void
+  activeCitationId?: string | null
+  onOpenLibraryCitation?: (
+    citation: LibraryCitation,
+    anchorId?: string,
+  ) => void
 }
 
 function isVisibleMessage(msg: Message): boolean {
@@ -59,6 +64,8 @@ function ChatMessageList({
   isLoading = false,
   onEdit,
   onRegenerate,
+  activeCitationId = null,
+  onOpenLibraryCitation,
 }: ChatMessageListProps) {
   const { containerRef, handleScroll } = useAutoScroll([messages, toolCall])
 
@@ -111,6 +118,8 @@ function ChatMessageList({
                 onEdit={onEdit}
                 onRegenerate={onRegenerate}
                 isLastAssistant={message.id === lastAssistantId}
+                activeCitationId={activeCitationId}
+                onOpenLibraryCitation={onOpenLibraryCitation}
               />
             </Fragment>
           )

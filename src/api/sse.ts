@@ -1,9 +1,27 @@
+import type { StreamDonePayload } from '@/types/chat'
+
 export interface StreamHandlers {
   onToken: (token: string) => void
   onToolCall?: (data: unknown) => void
   onToolResult?: (data: unknown) => void
-  onDone: (data: { conversation_id: string; sources: string[] }) => void
+  onDone: (data: StreamDonePayload) => void
   onError: (error: string) => void
+}
+
+function parseDonePayload(raw: unknown): StreamDonePayload {
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as StreamDonePayload
+    } catch {
+      return { conversation_id: '', sources: [] }
+    }
+  }
+
+  if (raw && typeof raw === 'object') {
+    return raw as StreamDonePayload
+  }
+
+  return { conversation_id: '', sources: [] }
 }
 
 function processSSELine(line: string, handlers: StreamHandlers): void {
@@ -26,9 +44,7 @@ function processSSELine(line: string, handlers: StreamHandlers): void {
       handlers.onToolResult?.(parsed.data)
       break
     case 'done':
-      handlers.onDone(
-        parsed.data as { conversation_id: string; sources: string[] },
-      )
+      handlers.onDone(parseDonePayload(parsed.data))
       break
     case 'error':
       handlers.onError(parsed.data as string)

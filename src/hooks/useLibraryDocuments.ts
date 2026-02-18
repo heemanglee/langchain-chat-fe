@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchDocuments, fetchStorageUsage } from '@/api/library'
 import { useLibraryStore } from '@/stores/libraryStore'
 import { LIBRARY_PAGE_SIZE } from '@/lib/constants'
+import { isIndexing } from '@/lib/libraryIndexStatus'
 
 const SUMMARY_POLL_INTERVAL = 5000
 
@@ -30,7 +31,10 @@ function useLibraryDocuments(page: number = 1) {
       const docs = query.state.data?.data?.documents
       if (!docs) return false
       const hasPending = docs.some(
-        (d) => d.summary_status === 'pending' || d.summary_status === 'processing',
+        (d) =>
+          d.summary_status === 'pending' ||
+          d.summary_status === 'processing' ||
+          isIndexing(d.index_status),
       )
       return hasPending ? SUMMARY_POLL_INTERVAL : false
     },

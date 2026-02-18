@@ -37,6 +37,7 @@ export interface StreamChatOptions {
   message: string
   conversation_id?: string
   use_web_search?: boolean
+  selected_document_ids?: number[]
   images?: File[]
 }
 
@@ -49,6 +50,12 @@ export async function streamChat(
   formData.append('message', request.message)
   if (request.conversation_id) {
     formData.append('conversation_id', request.conversation_id)
+  }
+  if (request.selected_document_ids && request.selected_document_ids.length > 0) {
+    formData.append(
+      'selected_document_ids',
+      JSON.stringify(request.selected_document_ids),
+    )
   }
   if (request.images) {
     for (const file of request.images) {

@@ -1,7 +1,30 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ChatMessage } from './ChatMessage'
-import type { Message } from '@/types/chat'
+import type { Citation, Message } from '@/types/chat'
+
+const testCitations: Citation[] = [
+  {
+    citation_id: 'lib-1',
+    source_type: 'library',
+    title: 'doc1.pdf',
+    snippet: null,
+    file_id: 1,
+    file_name: 'doc1.pdf',
+    anchors: [
+      {
+        anchor_id: 'a-1',
+        page: 1,
+        line_start: null,
+        line_end: null,
+        start_char: 0,
+        end_char: 10,
+        bbox: null,
+        quote: 'citation',
+      },
+    ],
+  },
+]
 
 function createMessage(overrides: Partial<Message> = {}): Message {
   return {
@@ -61,7 +84,7 @@ describe('ChatMessage', () => {
         message={createMessage({
           role: 'assistant',
           content: '답변',
-          sources: ['doc1.pdf'],
+          sources: testCitations,
         })}
       />,
     )

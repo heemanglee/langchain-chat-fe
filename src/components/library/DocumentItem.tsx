@@ -1,9 +1,15 @@
 import { Icon } from '@iconify/react'
 import { cn } from '@/lib/utils'
 import { formatRelativeTime, formatFileSize } from '@/lib/format'
-import { useUpdateDocumentStatus, useDeleteDocument } from '@/hooks/useLibraryMutations'
+import {
+  useUpdateDocumentStatus,
+  useDeleteDocument,
+  useReindexDocument,
+} from '@/hooks/useLibraryMutations'
 import { SummaryStatusBadge } from './SummaryStatusBadge'
+import { IndexStatusBadge } from './IndexStatusBadge'
 import { API_BASE_URL } from '@/lib/constants'
+import { normalizeIndexStatus } from '@/lib/libraryIndexStatus'
 import type { LibraryDocument } from '@/types/library'
 
 interface DocumentItemProps {
@@ -27,8 +33,10 @@ function DocumentItem({
 }: DocumentItemProps) {
   const updateStatus = useUpdateDocumentStatus()
   const deleteDoc = useDeleteDocument()
+  const reindexDoc = useReindexDocument()
 
   const isArchived = doc.status === 'archived'
+  const normalizedIndexStatus = normalizeIndexStatus(doc.index_status)
 
   function handleDownload() {
     window.open(
@@ -45,6 +53,10 @@ function DocumentItem({
   function handleDelete() {
     if (!window.confirm(`"${doc.original_filename}" 파일을 삭제하시겠습니까?`)) return
     deleteDoc.mutate(doc.id)
+  }
+
+  function handleReindex() {
+    reindexDoc.mutate(doc.id)
   }
 
   return (
@@ -80,6 +92,17 @@ function DocumentItem({
             </span>
           )}
           <SummaryStatusBadge summaryStatus={doc.summary_status} />
+          <IndexStatusBadge status={doc.index_status} />
+          {normalizedIndexStatus === 'failed' && (
+            <button
+              type="button"
+              onClick={handleReindex}
+              disabled={reindexDoc.isPending}
+              className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700 transition-colors hover:bg-red-100 disabled:opacity-60 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+            >
+              {reindexDoc.isPending ? '재시도 중...' : '재인덱싱'}
+            </button>
+          )}
         </div>
 
         {doc.summary && (

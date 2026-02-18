@@ -4,17 +4,20 @@ import {
   updateDocumentStatus,
   deleteDocument,
   fetchStorageUsage,
+  reindexDocument,
   uploadDocument,
 } from './library'
 
 const mockJson = vi.fn()
 const mockGet = vi.fn(() => ({ json: mockJson }))
+const mockPost = vi.fn(() => ({ json: mockJson }))
 const mockPatch = vi.fn(() => ({ json: mockJson }))
 const mockDelete = vi.fn(() => ({ json: mockJson }))
 
 vi.mock('./client', () => ({
   apiClient: {
     get: (...args: unknown[]) => mockGet(...(args as [])),
+    post: (...args: unknown[]) => mockPost(...(args as [])),
     patch: (...args: unknown[]) => mockPatch(...(args as [])),
     delete: (...args: unknown[]) => mockDelete(...(args as [])),
   },
@@ -81,6 +84,18 @@ describe('library API', () => {
       const result = await deleteDocument(1)
 
       expect(mockDelete).toHaveBeenCalledWith('api/v1/library/documents/1')
+      expect(result).toEqual(response)
+    })
+  })
+
+  describe('reindexDocument', () => {
+    it('문서 재인덱싱을 요청한다', async () => {
+      const response = { status: 200, message: 'ok', data: { id: 1, index_status: 'pending' } }
+      mockJson.mockResolvedValue(response)
+
+      const result = await reindexDocument(1)
+
+      expect(mockPost).toHaveBeenCalledWith('api/v1/library/documents/1/reindex')
       expect(result).toEqual(response)
     })
   })

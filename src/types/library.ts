@@ -1,3 +1,10 @@
+export type LibraryIndexStatus =
+  | 'pending'
+  | 'processing'
+  | 'ready'
+  | 'skipped'
+  | 'failed'
+
 export interface LibraryDocument {
   id: number
   original_filename: string
@@ -6,6 +13,7 @@ export interface LibraryDocument {
   status: 'active' | 'archived'
   summary: string | null
   summary_status: 'pending' | 'processing' | 'completed' | 'failed'
+  index_status: LibraryIndexStatus | null
   created_at: string
   updated_at: string
 }

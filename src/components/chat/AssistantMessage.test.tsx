@@ -1,7 +1,31 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { AssistantMessage } from './AssistantMessage'
-import type { Message } from '@/types/chat'
+import type { Citation, Message } from '@/types/chat'
+
+const testCitations: Citation[] = [
+  {
+    citation_id: 'lib-1',
+    source_type: 'library',
+    title: 'doc.pdf',
+    snippet: null,
+    file_id: 1,
+    file_name: 'doc.pdf',
+    anchors: [
+      {
+        anchor_id: 'a-1',
+        page: 1,
+        line_start: null,
+        line_end: null,
+        start_char: 0,
+        end_char: 10,
+        bbox: null,
+        quote: '본문 인용',
+      },
+    ],
+  },
+]
 
 function createAssistantMessage(overrides: Partial<Message> = {}): Message {
   return {
@@ -32,7 +56,7 @@ describe('AssistantMessage', () => {
   it('renders sources', () => {
     render(
       <AssistantMessage
-        message={createAssistantMessage({ sources: ['doc.pdf'] })}
+        message={createAssistantMessage({ sources: testCitations })}
       />,
     )
     expect(screen.getByText('doc.pdf')).toBeInTheDocument()
@@ -127,5 +151,70 @@ describe('AssistantMessage', () => {
     expect(
       container.querySelector('.rounded-full.bg-zinc-900'),
     ).toBeInTheDocument()
+  })
+
+  it('opens library citation panel when inline citation is clicked', async () => {
+    const user = userEvent.setup()
+    const onOpenLibraryCitation = vi.fn()
+
+    render(
+      <AssistantMessage
+        message={createAssistantMessage({
+          content: '요약 결과입니다. [cite:1]',
+          sources: testCitations,
+        })}
+        onOpenLibraryCitation={onOpenLibraryCitation}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '출처 1' }))
+    expect(onOpenLibraryCitation).toHaveBeenCalledWith(
+      testCitations[0],
+      'a-1',
+    )
+  })
+
+  it('matches citation by number suffix when id format differs', async () => {
+    const user = userEvent.setup()
+    const onOpenLibraryCitation = vi.fn()
+
+    render(
+      <AssistantMessage
+        message={createAssistantMessage({
+          content: '요약 결과입니다. [cite:1]',
+          sources: [
+            {
+              ...testCitations[0],
+              citation_id: 'citation-1',
+            },
+          ],
+        })}
+        onOpenLibraryCitation={onOpenLibraryCitation}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '출처 1' }))
+    expect(onOpenLibraryCitation).toHaveBeenCalled()
+  })
+
+  it('opens citation when localized marker is used', async () => {
+    const user = userEvent.setup()
+    const onOpenLibraryCitation = vi.fn()
+
+    render(
+      <AssistantMessage
+        message={createAssistantMessage({
+          content: '요약 결과입니다. [시민투입:1]',
+          sources: testCitations,
+        })}
+        onOpenLibraryCitation={onOpenLibraryCitation}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '출처 1' }))
+    expect(onOpenLibraryCitation).toHaveBeenCalledWith(
+      testCitations[0],
+      'a-1',
+    )
   })
 })
