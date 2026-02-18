@@ -9,6 +9,7 @@ import { Landing } from '@/pages/landing/Landing'
 import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
 import { Chat } from '@/pages/Chat'
+import { Library } from '@/pages/Library'
 import { SharedSession } from '@/pages/SharedSession'
 
 const queryClient = new QueryClient({
@@ -41,6 +42,7 @@ function App() {
             <Route element={<AppLayout />}>
               <Route path="/chat" element={<Chat />} />
               <Route path="/chat/:conversationId" element={<Chat />} />
+              <Route path="/library" element={<Library />} />
             </Route>
           </Route>
 

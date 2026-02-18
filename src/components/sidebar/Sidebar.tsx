@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router'
+import { useNavigate, useLocation } from 'react-router'
 import { Icon } from '@iconify/react'
 import { SidebarConversationList } from './SidebarConversationList'
 import { useSidebarStore } from '@/stores/sidebarStore'
@@ -6,10 +6,18 @@ import { cn } from '@/lib/utils'
 
 function Sidebar() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { isOpen, close } = useSidebarStore()
 
   function handleNewChat() {
     navigate('/chat')
+    if (window.innerWidth < 1024) {
+      close()
+    }
+  }
+
+  function handleLibrary() {
+    navigate('/library')
     if (window.innerWidth < 1024) {
       close()
     }
@@ -52,12 +60,12 @@ function Sidebar() {
 
         {/* Navigation sections */}
         <nav className="flex flex-1 flex-col overflow-hidden">
-          {/* Placeholder links */}
           <div className="space-y-0.5 px-3 pb-2">
             <SidebarNavItem
               icon="solar:library-linear"
               label="라이브러리"
-              disabled
+              active={location.pathname === '/library'}
+              onClick={handleLibrary}
             />
             <SidebarNavItem
               icon="solar:robot-bold"
@@ -87,15 +95,25 @@ function SidebarNavItem({
   icon,
   label,
   disabled,
+  active,
+  onClick,
 }: {
   icon: string
   label: string
   disabled?: boolean
+  active?: boolean
+  onClick?: () => void
 }) {
   return (
     <button
       disabled={disabled}
-      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800"
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+        active
+          ? 'bg-zinc-100 font-medium text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
+          : 'text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800',
+      )}
     >
       <Icon icon={icon} width={18} />
       {label}
