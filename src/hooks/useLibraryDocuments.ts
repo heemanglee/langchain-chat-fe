@@ -3,6 +3,8 @@ import { fetchDocuments, fetchStorageUsage } from '@/api/library'
 import { useLibraryStore } from '@/stores/libraryStore'
 import { LIBRARY_PAGE_SIZE } from '@/lib/constants'
 
+const SUMMARY_POLL_INTERVAL = 5000
+
 function useLibraryDocuments(page: number = 1) {
   const includeArchived = useLibraryStore((s) => s.includeArchived)
 
@@ -23,6 +25,14 @@ function useLibraryDocuments(page: number = 1) {
         totalPages: Math.ceil(listData.total / listData.size),
         page: listData.page,
       }
+    },
+    refetchInterval: (query) => {
+      const docs = query.state.data?.data?.documents
+      if (!docs) return false
+      const hasPending = docs.some(
+        (d) => d.summary_status === 'pending' || d.summary_status === 'processing',
+      )
+      return hasPending ? SUMMARY_POLL_INTERVAL : false
     },
   })
 }
