@@ -51,6 +51,9 @@ export async function streamChat(
   if (request.conversation_id) {
     formData.append('conversation_id', request.conversation_id)
   }
+  if (request.use_web_search !== undefined) {
+    formData.append('use_web_search', String(request.use_web_search))
+  }
   if (request.selected_document_ids && request.selected_document_ids.length > 0) {
     formData.append(
       'selected_document_ids',

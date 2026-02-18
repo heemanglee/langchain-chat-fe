@@ -9,6 +9,7 @@ import { useChatDocuments } from '@/hooks/useChatDocuments'
 import { useConversationMessages } from '@/hooks/useConversationMessages'
 import { useReindexDocument } from '@/hooks/useLibraryMutations'
 import { useLibraryStore } from '@/stores/libraryStore'
+import { useChatToolStore } from '@/stores/chatToolStore'
 import type { LibraryCitation } from '@/types/chat'
 
 function Chat() {
@@ -25,8 +26,10 @@ function Chat() {
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null)
   const [isSourcePanelOpen, setIsSourcePanelOpen] = useState(false)
 
-  const { data: historyMessages, isLoading: isHistoryLoading } =
+  const { data: conversationData, isLoading: isHistoryLoading } =
     useConversationMessages(conversationId)
+  const historyMessages = conversationData?.messages
+  const serverToolState = conversationData?.toolState
   const { data: documents = [], isLoading: isDocumentsLoading } = useChatDocuments()
   const reindexDocument = useReindexDocument()
 
@@ -70,6 +73,21 @@ function Chat() {
     }
     prevConversationIdRef.current = conversationId
   }, [conversationId])
+
+  useEffect(() => {
+    if (!serverToolState) return
+    if (!conversationId) return
+
+    useChatToolStore.getState().hydrate(
+      serverToolState.use_web_search,
+      serverToolState.selected_document_ids,
+    )
+
+    if (serverToolState.selected_document_ids.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate from server
+      setSelectedDocumentIds(serverToolState.selected_document_ids)
+    }
+  }, [conversationId, serverToolState])
 
   function handleOpenLibraryCitation(citation: LibraryCitation, anchorId?: string) {
     setActiveCitation(citation)

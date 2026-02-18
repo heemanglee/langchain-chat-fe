@@ -127,9 +127,15 @@ export interface RegenerateRequest {
   conversation_id: string
 }
 
+export interface ToolState {
+  use_web_search: boolean
+  selected_document_ids: number[]
+}
+
 export interface ConversationMessagesResponse {
   conversation_id: string
   messages: ServerMessage[]
+  tool_state: ToolState | null
 }
 
 export interface ConversationSummary {

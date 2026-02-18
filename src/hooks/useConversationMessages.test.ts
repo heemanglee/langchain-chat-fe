@@ -52,6 +52,7 @@ describe('useConversationMessages', () => {
             created_at: '2024-01-01T00:00:01Z',
           },
         ],
+        tool_state: { use_web_search: true, selected_document_ids: [] },
       },
     })
 
@@ -60,13 +61,17 @@ describe('useConversationMessages', () => {
     })
 
     await waitFor(() => {
-      expect(result.current.data).toHaveLength(2)
+      expect(result.current.data?.messages).toHaveLength(2)
     })
 
-    expect(result.current.data![0].role).toBe('user')
-    expect(result.current.data![0].serverId).toBe(1)
-    expect(result.current.data![1].role).toBe('assistant')
-    expect(result.current.data![1].content).toBe('Hi there')
+    expect(result.current.data!.messages[0].role).toBe('user')
+    expect(result.current.data!.messages[0].serverId).toBe(1)
+    expect(result.current.data!.messages[1].role).toBe('assistant')
+    expect(result.current.data!.messages[1].content).toBe('Hi there')
+    expect(result.current.data!.toolState).toEqual({
+      use_web_search: true,
+      selected_document_ids: [],
+    })
   })
 
   it('returns empty array when data is null', async () => {
@@ -84,6 +89,7 @@ describe('useConversationMessages', () => {
       expect(result.current.isLoading).toBe(false)
     })
 
-    expect(result.current.data).toEqual([])
+    expect(result.current.data?.messages).toEqual([])
+    expect(result.current.data?.toolState).toBeNull()
   })
 })
